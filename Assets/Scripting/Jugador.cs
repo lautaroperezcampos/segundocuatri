@@ -7,6 +7,12 @@ public class Jugador : MonoBehaviour
     private Rigidbody2D rb;
     private int direccion = 1; // 1 = mirando a la derecha, -1 = mirando a la izquierda
 
+    [Header("Salto")]
+    public float fuerzaSalto = 8f;
+    public float distanciaChequeoSuelo = 0.6f; // ajustar segun el alto del sprite
+    public LayerMask capaSuelo; // elegi que layer cuenta como "suelo" en el Inspector
+    private bool enSuelo = false;
+
     [Header("Ataque")]
     public int daño = 10;
     public float rangoAtaque = 1.5f;
@@ -36,13 +42,25 @@ public class Jugador : MonoBehaviour
 
     void Update()
     {
+        ChequearSuelo();
         BuscarSubjefePoseible();
         ManejarInputPosesion();
 
         if (!estaPoseyendo)
         {
             ManejarInputAtaque();
+            ManejarInputSalto();
         }
+        else
+        {
+            ManejarInputAtaqueSubjefe();
+            ManejarInputSaltoSubjefe();
+        }
+    }
+
+    void ChequearSuelo()
+    {
+        enSuelo = Physics2D.Raycast(transform.position, Vector2.down, distanciaChequeoSuelo, capaSuelo);
     }
 
     void FixedUpdate()
@@ -77,12 +95,41 @@ public class Jugador : MonoBehaviour
         subjefePoseido.Mover(horizontal);
     }
 
+    void ManejarInputSalto()
+    {
+        if (Input.GetKeyDown(KeyCode.Space) && enSuelo)
+        {
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, fuerzaSalto);
+        }
+    }
+
+    void ManejarInputSaltoSubjefe()
+    {
+        if (subjefePoseido == null) return;
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            subjefePoseido.Saltar();
+        }
+    }
+
     void ManejarInputAtaque()
     {
         // atacamos con click izquierdo
         if (Input.GetMouseButtonDown(0))
         {
             Atacar();
+        }
+    }
+
+    void ManejarInputAtaqueSubjefe()
+    {
+        if (subjefePoseido == null) return;
+
+        // mismo click, pero ataca el subjefe (por ejemplo para romper puertas)
+        if (Input.GetMouseButtonDown(0))
+        {
+            subjefePoseido.Atacar();
         }
     }
 
@@ -107,7 +154,8 @@ public class Jugador : MonoBehaviour
     void MostrarGolpeVisual()
     {
         GameObject golpe = new GameObject("GolpeVisual");
-        golpe.transform.position = transform.position + new Vector3(direccion * distanciaGolpe, 0, 0);
+        golpe.transform.SetParent(transform); // hijo del jugador: se mueve junto con el
+        golpe.transform.localPosition = new Vector3(direccion * distanciaGolpe, 0, 0);
         golpe.transform.localScale = Vector3.one * tamañoGolpe;
 
         SpriteRenderer sr = golpe.AddComponent<SpriteRenderer>();
@@ -206,10 +254,13 @@ public class Jugador : MonoBehaviour
         subjefePoseido = null;
     }
 
-    // dibuja el rango de ataque en el editor
+    // dibuja el rango de ataque y el raycast de suelo en el editor
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, rangoAtaque);
+
+        Gizmos.color = Color.green;
+        Gizmos.DrawLine(transform.position, transform.position + Vector3.down * distanciaChequeoSuelo);
     }
 }
