@@ -2,9 +2,14 @@ using UnityEngine;
 
 public class Jugador : MonoBehaviour
 {
+    [Header("Vida")]
+    public int vidaMaxima = 100;
+    public int vidaActual;
+
     [Header("Movimiento")]
     public float velocidad = 5f;
     private Rigidbody2D rb;
+    private Collider2D colisionador;
     private int direccion = 1; // 1 = mirando a la derecha, -1 = mirando a la izquierda
 
     [Header("Salto")]
@@ -34,10 +39,13 @@ public class Jugador : MonoBehaviour
 
     [Header("Referencias")]
     public GameObject modeloJugador; // el sprite/visual del jugador, para esconderlo al poseer
+    public CamaraSeguimiento camara; // arrastra el Main Camera desde el Inspector
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        colisionador = GetComponent<Collider2D>();
+        vidaActual = vidaMaxima;
     }
 
     void Update()
@@ -93,6 +101,10 @@ public class Jugador : MonoBehaviour
 
         float horizontal = Input.GetAxisRaw("Horizontal");
         subjefePoseido.Mover(horizontal);
+
+        // mantenemos al jugador invisible en la misma posicion del subjefe,
+        // asi los enemigos y otros sistemas que lo buscan por posicion funcionan bien
+        transform.position = subjefePoseido.transform.position;
     }
 
     void ManejarInputSalto()
@@ -137,16 +149,22 @@ public class Jugador : MonoBehaviour
     {
         MostrarGolpeVisual();
 
-        Subjefe[] subjefes = FindObjectsByType<Subjefe>(FindObjectsSortMode.None);
+        Collider2D[] impactos = Physics2D.OverlapCircleAll(transform.position, rangoAtaque);
 
-        foreach (Subjefe subjefe in subjefes)
+        foreach (Collider2D impacto in impactos)
         {
-            float distancia = Vector2.Distance(transform.position, subjefe.transform.position);
-
-            if (distancia <= rangoAtaque)
+            Subjefe subjefe = impacto.GetComponent<Subjefe>();
+            if (subjefe != null)
             {
                 subjefe.RecibirDaño(daño);
                 Debug.Log("Le pegaste al subjefe: " + subjefe.name);
+            }
+
+            Enemigo enemigo = impacto.GetComponent<Enemigo>();
+            if (enemigo != null)
+            {
+                enemigo.RecibirDaño(daño);
+                Debug.Log("Le pegaste al enemigo: " + enemigo.name);
             }
         }
     }
@@ -218,8 +236,16 @@ public class Jugador : MonoBehaviour
 
         Debug.Log("Poseyendo al subjefe: " + subjefe.name);
 
-        // frenamos al jugador para que no quede deslizando mientras esta escondido
+        // frenamos al jugador y apagamos su fisica para que no pelee
+        // con la sincronizacion de posicion mientras esta escondido
         rb.linearVelocity = Vector2.zero;
+        rb.bodyType = RigidbodyType2D.Kinematic;
+
+        // apagamos su collider para que no choque contra el subjefe al superponerse
+        if (colisionador != null)
+        {
+            colisionador.enabled = false;
+        }
 
         // escondemos al jugador mientras posee (sigue existiendo, solo no se ve ni se mueve solo)
         if (modeloJugador != null)
@@ -231,6 +257,11 @@ public class Jugador : MonoBehaviour
         {
             botonPosesion.SetActive(false);
         }
+
+        if (camara != null)
+        {
+            camara.CambiarObjetivo(subjefe.transform);
+        }
     }
 
     public void DejarDePoseer()
@@ -239,11 +270,20 @@ public class Jugador : MonoBehaviour
 
         Debug.Log("Dejaste de poseer al subjefe, desaparece");
 
-        // movemos al jugador a donde estaba el subjefe antes de que desaparezca
+        // movemos al jugador a donde estaba el subjefe antes de que desaparezca,
+        // y le devolvemos la fisica normal con velocidad limpia
         if (subjefePoseido != null)
         {
             transform.position = subjefePoseido.transform.position;
             Destroy(subjefePoseido.gameObject);
+        }
+
+        rb.bodyType = RigidbodyType2D.Dynamic;
+        rb.linearVelocity = Vector2.zero;
+
+        if (colisionador != null)
+        {
+            colisionador.enabled = true;
         }
 
         if (modeloJugador != null)
@@ -251,7 +291,26 @@ public class Jugador : MonoBehaviour
             modeloJugador.SetActive(true);
         }
 
+        if (camara != null)
+        {
+            camara.CambiarObjetivo(transform);
+        }
+
         subjefePoseido = null;
+    }
+
+    public void RecibirDaño(int cantidad)
+    {
+        vidaActual -= cantidad;
+        vidaActual = Mathf.Max(vidaActual, 0);
+
+        Debug.Log("Recibiste daño, vida restante: " + vidaActual);
+
+        if (vidaActual <= 0)
+        {
+            Debug.Log("El jugador murio");
+            // aca despues manejamos game over o respawn
+        }
     }
 
     // dibuja el rango de ataque y el raycast de suelo en el editor

@@ -80,6 +80,12 @@ public class Subjefe : MonoBehaviour
             {
                 puerta.RecibirDaño(dañoAtaque);
             }
+
+            Enemigo enemigo = impacto.GetComponent<Enemigo>();
+            if (enemigo != null)
+            {
+                enemigo.MorirInstantaneo(); // el subjefe mata de un solo golpe
+            }
         }
     }
 
