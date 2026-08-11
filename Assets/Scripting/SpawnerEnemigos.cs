@@ -26,8 +26,11 @@ public class SpawnerEnemigos : MonoBehaviour
     {
         if (yaSeActivo) return;
 
-        // solo se activa si quien entro a la zona es el Jugador
-        if (otro.GetComponent<Jugador>() != null)
+        // se activa si entra el Jugador normal, o el Subjefe (cuando esta poseido)
+        bool esJugador = otro.GetComponent<Jugador>() != null;
+        bool esSubjefe = otro.GetComponent<Subjefe>() != null;
+
+        if (esJugador || esSubjefe)
         {
             yaSeActivo = true;
             ActivarSpawn();

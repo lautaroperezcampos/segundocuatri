@@ -234,6 +234,9 @@ public class Jugador : MonoBehaviour
         estaPoseyendo = true;
         subjefePoseido = subjefe;
 
+        // revivimos al subjefe con vida completa al poseerlo
+        subjefe.vidaActual = subjefe.vidaMaxima;
+
         Debug.Log("Poseyendo al subjefe: " + subjefe.name);
 
         // frenamos al jugador y apagamos su fisica para que no pelee
@@ -241,10 +244,11 @@ public class Jugador : MonoBehaviour
         rb.linearVelocity = Vector2.zero;
         rb.bodyType = RigidbodyType2D.Kinematic;
 
-        // apagamos su collider para que no choque contra el subjefe al superponerse
+        // el collider pasa a ser Trigger: no empuja fisicamente al subjefe,
+        // pero sigue siendo detectable por enemigos, spawners, etc.
         if (colisionador != null)
         {
-            colisionador.enabled = false;
+            colisionador.isTrigger = true;
         }
 
         // escondemos al jugador mientras posee (sigue existiendo, solo no se ve ni se mueve solo)
@@ -283,7 +287,7 @@ public class Jugador : MonoBehaviour
 
         if (colisionador != null)
         {
-            colisionador.enabled = true;
+            colisionador.isTrigger = false;
         }
 
         if (modeloJugador != null)
@@ -299,8 +303,26 @@ public class Jugador : MonoBehaviour
         subjefePoseido = null;
     }
 
+    private bool estaMuerto = false;
+
     public void RecibirDaño(int cantidad)
     {
+        // mientras poseemos al subjefe, el daño le pega a el, no al jugador
+        if (estaPoseyendo && subjefePoseido != null)
+        {
+            subjefePoseido.RecibirDaño(cantidad);
+
+            if (subjefePoseido.vidaActual <= 0)
+            {
+                Debug.Log("El subjefe poseido se quedo sin vida, volviendo al jugador");
+                DejarDePoseer();
+            }
+
+            return;
+        }
+
+        if (estaMuerto) return; // ya esta muerto, ignoramos mas daño
+
         vidaActual -= cantidad;
         vidaActual = Mathf.Max(vidaActual, 0);
 
@@ -308,9 +330,17 @@ public class Jugador : MonoBehaviour
 
         if (vidaActual <= 0)
         {
-            Debug.Log("El jugador murio");
-            // aca despues manejamos game over o respawn
+            Morir();
         }
+    }
+
+    void Morir()
+    {
+        estaMuerto = true;
+        Debug.Log("GAME OVER - El jugador murio");
+
+        // congelamos el juego entero: fisicas, movimiento, animaciones, todo
+        Time.timeScale = 0f;
     }
 
     // dibuja el rango de ataque y el raycast de suelo en el editor
