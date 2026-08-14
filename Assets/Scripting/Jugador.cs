@@ -18,6 +18,10 @@ public class Jugador : MonoBehaviour
     public LayerMask capaSuelo; // elegi que layer cuenta como "suelo" en el Inspector
     private bool enSuelo = false;
 
+    [Header("Escalera diagonal")]
+    private bool tocandoEscalera = false;
+    private EscaleraDiagonal escaleraActual;
+
     [Header("Ataque")]
     public int daño = 10;
     public float rangoAtaque = 1.5f;
@@ -40,6 +44,7 @@ public class Jugador : MonoBehaviour
     [Header("Referencias")]
     public GameObject modeloJugador; // el sprite/visual del jugador, para esconderlo al poseer
     public CamaraSeguimiento camara; // arrastra el Main Camera desde el Inspector
+    public GameObject panelGameOver; // arrastra el panel de UI con el texto y el boton Reintentar
 
     void Start()
     {
@@ -73,14 +78,157 @@ public class Jugador : MonoBehaviour
 
     void FixedUpdate()
     {
+        bool subiendoEscalera = false;
+        bool sostenidoEnEscalera = false;
+
+        if (tocandoEscalera)
+        {
+            float horizontal = Input.GetAxisRaw("Horizontal");
+            float vertical = Input.GetAxisRaw("Vertical");
+
+            if (horizontal != 0 && vertical != 0)
+            {
+                subiendoEscalera = true; // escala en diagonal
+            }
+            else if (horizontal == 0 && vertical == 0)
+            {
+                sostenidoEnEscalera = true; // parado quieto: no se cae
+            }
+            // si aprieta solo horizontal (sin vertical), sigue caminando derecho normal
+        }
+
+        ActualizarColisionConPlataforma(subiendoEscalera || sostenidoEnEscalera);
+
         // el movimiento con fisica va en FixedUpdate, no en Update
         if (estaPoseyendo)
         {
-            MoverSubjefe();
+            if (subiendoEscalera)
+            {
+                MoverSubjefeEnEscalera();
+            }
+            else if (sostenidoEnEscalera)
+            {
+                SostenerSubjefeEnEscalera();
+            }
+            else
+            {
+                if (subjefePoseido != null)
+                {
+                    subjefePoseido.CambiarTipoDeCuerpo(RigidbodyType2D.Dynamic);
+                }
+                MoverSubjefe();
+            }
+        }
+        else if (subiendoEscalera)
+        {
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            MoverEnEscaleraDiagonal();
+        }
+        else if (sostenidoEnEscalera)
+        {
+            // se queda flotando en el lugar, sin gravedad, hasta que se mueva o suelte
+            rb.bodyType = RigidbodyType2D.Kinematic;
+            rb.linearVelocity = Vector2.zero;
         }
         else
         {
+            rb.bodyType = RigidbodyType2D.Dynamic;
             MoverJugador();
+        }
+    }
+
+    // la plataforma que la escalera atraviesa es solida siempre,
+    // EXCEPTO mientras estamos escalando o sostenidos sobre la escalera.
+    // Ignora colision con el collider que este activo en ese momento (jugador o subjefe poseido)
+    void ActualizarColisionConPlataforma(bool debeIgnorar)
+    {
+        if (escaleraActual == null || escaleraActual.plataformaQueAtraviesa == null) return;
+
+        Collider2D colliderActivo = colisionador;
+
+        if (estaPoseyendo && subjefePoseido != null)
+        {
+            colliderActivo = subjefePoseido.ObtenerCollider();
+        }
+
+        if (colliderActivo != null)
+        {
+            Physics2D.IgnoreCollision(colliderActivo, escaleraActual.plataformaQueAtraviesa, debeIgnorar);
+        }
+    }
+
+    void MoverEnEscaleraDiagonal()
+    {
+        Vector2 direccionRampa = escaleraActual.transform.right;
+        float vertical = Input.GetAxisRaw("Vertical");
+
+        // si el vertical es negativo (S), invertimos para bajar la rampa
+        float sentido = vertical > 0 ? 1f : -1f;
+
+        rb.linearVelocity = direccionRampa.normalized * velocidad * sentido;
+    }
+
+    // version para cuando se esta controlando al subjefe poseido
+    void MoverSubjefeEnEscalera()
+    {
+        if (subjefePoseido == null || escaleraActual == null) return;
+
+        subjefePoseido.CambiarTipoDeCuerpo(RigidbodyType2D.Dynamic);
+
+        Vector2 direccionRampa = escaleraActual.transform.right;
+        float vertical = Input.GetAxisRaw("Vertical");
+        float sentido = vertical > 0 ? 1f : -1f;
+
+        subjefePoseido.MoverEnDireccion(direccionRampa.normalized * subjefePoseido.velocidad * sentido);
+
+        // mantenemos al jugador invisible sincronizado con el subjefe
+        transform.position = subjefePoseido.transform.position;
+    }
+
+    void SostenerSubjefeEnEscalera()
+    {
+        if (subjefePoseido == null) return;
+
+        subjefePoseido.CambiarTipoDeCuerpo(RigidbodyType2D.Kinematic);
+        subjefePoseido.MoverEnDireccion(Vector2.zero);
+
+        transform.position = subjefePoseido.transform.position;
+    }
+
+    void OnTriggerEnter2D(Collider2D otro)
+    {
+        EscaleraDiagonal escalera = otro.GetComponent<EscaleraDiagonal>();
+        if (escalera != null)
+        {
+            tocandoEscalera = true;
+            escaleraActual = escalera;
+        }
+    }
+
+    void OnTriggerExit2D(Collider2D otro)
+    {
+        EscaleraDiagonal escalera = otro.GetComponent<EscaleraDiagonal>();
+        if (escalera != null && escalera == escaleraActual)
+        {
+            tocandoEscalera = false;
+
+            // al salir, nos aseguramos de dejar la colision restaurada (solida)
+            // tanto para el jugador como para el subjefe, por si estaba poseido
+            if (escalera.plataformaQueAtraviesa != null)
+            {
+                Physics2D.IgnoreCollision(colisionador, escalera.plataformaQueAtraviesa, false);
+
+                if (subjefePoseido != null)
+                {
+                    Collider2D colliderSubjefe = subjefePoseido.ObtenerCollider();
+                    if (colliderSubjefe != null)
+                    {
+                        Physics2D.IgnoreCollision(colliderSubjefe, escalera.plataformaQueAtraviesa, false);
+                    }
+                }
+            }
+
+            escaleraActual = null;
         }
     }
 
@@ -233,6 +381,7 @@ public class Jugador : MonoBehaviour
     {
         estaPoseyendo = true;
         subjefePoseido = subjefe;
+        subjefe.estaPoseido = true; // asi el subjefe sabe que no debe atacar solo
 
         // revivimos al subjefe con vida completa al poseerlo
         subjefe.vidaActual = subjefe.vidaMaxima;
@@ -338,6 +487,11 @@ public class Jugador : MonoBehaviour
     {
         estaMuerto = true;
         Debug.Log("GAME OVER - El jugador murio");
+
+        if (panelGameOver != null)
+        {
+            panelGameOver.SetActive(true);
+        }
 
         // congelamos el juego entero: fisicas, movimiento, animaciones, todo
         Time.timeScale = 0f;

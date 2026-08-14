@@ -8,7 +8,7 @@ public class Subjefe : MonoBehaviour
 
     [Header("Movimiento")]
     public float velocidad = 3f; // usado cuando el jugador lo posee
-    private int direccion = 1; // 1 = mirando a la derecha, -1 = mirando a la izquierda
+    protected int direccion = 1; // 1 = mirando a la derecha, -1 = mirando a la izquierda
 
     [Header("Salto")]
     public float fuerzaSalto = 8f;
@@ -21,6 +21,8 @@ public class Subjefe : MonoBehaviour
     public float rangoDeteccion = 3f; // que tan cerca tiene que estar el jugador
     [Range(0f, 1f)]
     public float porcentajeVidaParaPoseer = 0.3f; // se puede poseer cuando la vida baja de este %
+    [HideInInspector]
+    public bool estaPoseido = false; // el Jugador lo marca true/false al poseer/dejar de poseer
 
     [Header("Ataque (cuando esta poseido)")]
     public int dañoAtaque = 15;
@@ -33,10 +35,10 @@ public class Subjefe : MonoBehaviour
     public float distanciaGolpe = 1f;
     public float duracionGolpe = 0.12f;
 
-    private Transform jugador;
-    private Rigidbody2D rb;
+    protected Transform jugador;
+    protected Rigidbody2D rb;
 
-    void Start()
+    protected virtual void Start()
     {
         vidaActual = vidaMaxima;
         rb = GetComponent<Rigidbody2D>();
@@ -67,7 +69,23 @@ public class Subjefe : MonoBehaviour
         }
     }
 
-    public void Atacar()
+    // usados por el Jugador para moverlo manualmente por la escalera diagonal
+    public void MoverEnDireccion(Vector2 direccionYVelocidad)
+    {
+        rb.linearVelocity = direccionYVelocidad;
+    }
+
+    public void CambiarTipoDeCuerpo(RigidbodyType2D tipo)
+    {
+        rb.bodyType = tipo;
+    }
+
+    public Collider2D ObtenerCollider()
+    {
+        return GetComponent<Collider2D>();
+    }
+
+    public virtual void Atacar()
     {
         MostrarGolpeVisual();
 
@@ -89,7 +107,7 @@ public class Subjefe : MonoBehaviour
         }
     }
 
-    void MostrarGolpeVisual()
+    protected void MostrarGolpeVisual()
     {
         GameObject golpe = new GameObject("GolpeVisualSubjefe");
         golpe.transform.SetParent(transform); // hijo del subjefe: se mueve junto con el
@@ -104,7 +122,7 @@ public class Subjefe : MonoBehaviour
         Destroy(golpe, duracionGolpe);
     }
 
-    void Update()
+    protected virtual void Update()
     {
         enSuelo = Physics2D.Raycast(transform.position, Vector2.down, distanciaChequeoSuelo, capaSuelo);
 
@@ -128,14 +146,14 @@ public class Subjefe : MonoBehaviour
         }
     }
 
-    void Morir()
+    protected virtual void Morir()
     {
         Debug.Log("El subjefe murio");
         // aca despues metemos animacion, drop de recompensa, etc.
     }
 
     // dibuja el rango de deteccion y el raycast de suelo en el editor
-    void OnDrawGizmosSelected()
+    protected virtual void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, rangoDeteccion);
