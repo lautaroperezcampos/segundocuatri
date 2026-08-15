@@ -45,16 +45,26 @@ public class Jugador : MonoBehaviour
     public GameObject modeloJugador; // el sprite/visual del jugador, para esconderlo al poseer
     public CamaraSeguimiento camara; // arrastra el Main Camera desde el Inspector
     public GameObject panelGameOver; // arrastra el panel de UI con el texto y el boton Reintentar
+    private SpriteRenderer spriteRenderer;
+    private Animator animator;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         colisionador = GetComponent<Collider2D>();
         vidaActual = vidaMaxima;
+
+        if (modeloJugador != null)
+        {
+            spriteRenderer = modeloJugador.GetComponent<SpriteRenderer>();
+            animator = modeloJugador.GetComponent<Animator>();
+        }
     }
 
     void Update()
     {
+        if (estaMuerto) return; // muerto: ignoramos todos los controles
+
         ChequearSuelo();
         BuscarSubjefePoseible();
         ManejarInputPosesion();
@@ -74,10 +84,22 @@ public class Jugador : MonoBehaviour
     void ChequearSuelo()
     {
         enSuelo = Physics2D.Raycast(transform.position, Vector2.down, distanciaChequeoSuelo, capaSuelo);
+
+        if (animator != null)
+        {
+            animator.SetBool("EnSuelo", enSuelo);
+        }
     }
 
     void FixedUpdate()
     {
+        if (estaMuerto)
+        {
+            // dejamos que la gravedad lo siga afectando, pero sin movimiento horizontal
+            rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            return;
+        }
+
         bool subiendoEscalera = false;
         bool sostenidoEnEscalera = false;
 
@@ -241,6 +263,17 @@ public class Jugador : MonoBehaviour
         {
             direccion = horizontal > 0 ? 1 : -1;
         }
+
+        if (animator != null)
+        {
+            animator.SetBool("Caminando", horizontal != 0);
+        }
+
+        // volteamos el sprite segun hacia donde estamos mirando
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.flipX = direccion < 0;
+        }
     }
 
     void MoverSubjefe()
@@ -297,18 +330,33 @@ public class Jugador : MonoBehaviour
     {
         MostrarGolpeVisual();
 
-        Collider2D[] impactos = Physics2D.OverlapCircleAll(transform.position, rangoAtaque);
-
-        foreach (Collider2D impacto in impactos)
+        if (animator != null)
         {
-            Subjefe subjefe = impacto.GetComponent<Subjefe>();
+            animator.SetTrigger("Atacando");
+        }
+
+        // buscamos en un radio generoso primero, y despues filtramos por la
+        // distancia REAL entre bordes de collider (no entre centros) - asi un
+        // objetivo grande es mas facil de alcanzar sin inflar el rango contra
+        // objetivos chicos
+        float radioBusqueda = rangoAtaque + 5f;
+        Collider2D[] candidatos = Physics2D.OverlapCircleAll(transform.position, radioBusqueda);
+
+        foreach (Collider2D candidato in candidatos)
+        {
+            if (candidato == colisionador) continue; // nuestro propio collider, ignorar
+
+            ColliderDistance2D distancia = candidato.Distance(colisionador);
+            if (distancia.distance > rangoAtaque) continue; // el borde esta muy lejos todavia
+
+            Subjefe subjefe = candidato.GetComponent<Subjefe>();
             if (subjefe != null)
             {
                 subjefe.RecibirDaño(daño);
                 Debug.Log("Le pegaste al subjefe: " + subjefe.name);
             }
 
-            Enemigo enemigo = impacto.GetComponent<Enemigo>();
+            Enemigo enemigo = candidato.GetComponent<Enemigo>();
             if (enemigo != null)
             {
                 enemigo.RecibirDaño(daño);
@@ -488,13 +536,21 @@ public class Jugador : MonoBehaviour
         estaMuerto = true;
         Debug.Log("GAME OVER - El jugador murio");
 
+        // por si murio en medio de la escalera (donde queda en modo Kinematic sin gravedad),
+        // forzamos que vuelva a Dynamic para que caiga normal al piso
+        rb.bodyType = RigidbodyType2D.Dynamic;
+
+        if (animator != null)
+        {
+            animator.SetTrigger("Muerto");
+        }
+
         if (panelGameOver != null)
         {
             panelGameOver.SetActive(true);
         }
 
-        // congelamos el juego entero: fisicas, movimiento, animaciones, todo
-        Time.timeScale = 0f;
+        // ya NO congelamos el tiempo, asi se alcanza a ver la animacion de muerte
     }
 
     // dibuja el rango de ataque y el raycast de suelo en el editor

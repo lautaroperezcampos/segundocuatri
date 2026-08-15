@@ -14,12 +14,18 @@ public class SubjefeDisparador : Subjefe
 
     private float tiempoUltimoDisparo = -999f;
 
+    // guardamos hacia donde y a quien va el proximo disparo, hasta que la
+    // animacion llegue al frame correcto y lo dispare de verdad
+    private Vector2 direccionPendiente;
+    private bool objetivoEsJugadorPendiente;
+    private bool hayDisparoPendiente = false;
+
     protected override void Update()
     {
         base.Update(); // mantiene toda la logica original: suelo, deteccion de posesion, etc
 
-        // solo dispara solo cuando NO esta siendo controlado por el jugador
-        if (!estaPoseido)
+        // solo dispara si no esta poseido Y sigue vivo
+        if (!estaPoseido && !estaMuerto)
         {
             IntentarDispararAlJugador();
         }
@@ -36,7 +42,7 @@ public class SubjefeDisparador : Subjefe
         tiempoUltimoDisparo = Time.time;
 
         Vector2 direccionDisparo = (jugador.position - transform.position).normalized;
-        Disparar(direccionDisparo, true); // true = este disparo hiere al Jugador
+        PrepararDisparo(direccionDisparo, true); // true = este disparo hiere al Jugador
     }
 
     // el jugador llama a esto (via Atacar()) cuando lo posee y hace click
@@ -47,12 +53,37 @@ public class SubjefeDisparador : Subjefe
         tiempoUltimoDisparo = Time.time;
 
         Vector2 direccionDisparo = new Vector2(direccion, 0);
-        Disparar(direccionDisparo, false); // false = este disparo hiere a Puerta/Enemigo
+        PrepararDisparo(direccionDisparo, false); // false = este disparo hiere a Puerta/Enemigo
     }
 
-    void Disparar(Vector2 direccionDisparo, bool objetivoEsJugador)
+    // guarda la info del disparo y arranca la animacion; el proyectil todavia NO aparece
+    void PrepararDisparo(Vector2 direccionDisparo, bool objetivoEsJugador)
     {
-        Vector3 posicionSpawn = transform.position + (Vector3)(direccionDisparo * distanciaSpawnProyectil);
+        direccionPendiente = direccionDisparo;
+        objetivoEsJugadorPendiente = objetivoEsJugador;
+        hayDisparoPendiente = true;
+
+        if (animator != null)
+        {
+            animator.SetTrigger("Disparando");
+        }
+        else
+        {
+            // si no hay animator configurado, disparamos al toque como antes
+            SpawnearProyectilAhora();
+        }
+    }
+
+    // IMPORTANTE: este metodo lo tiene que llamar un Animation Event
+    // puesto en el frame exacto de la animacion de disparo donde queres
+    // que aparezca el proyectil (click derecho en ese frame en la ventana
+    // de Animation > Add Animation Event > elegi esta funcion)
+    public void SpawnearProyectilAhora()
+    {
+        if (!hayDisparoPendiente) return;
+        hayDisparoPendiente = false;
+
+        Vector3 posicionSpawn = transform.position + (Vector3)(direccionPendiente * distanciaSpawnProyectil);
         GameObject nuevoProyectil = Instantiate(prefabProyectil, posicionSpawn, Quaternion.identity);
 
         Proyectil scriptProyectil = nuevoProyectil.GetComponent<Proyectil>();
@@ -60,7 +91,7 @@ public class SubjefeDisparador : Subjefe
         {
             scriptProyectil.daño = dañoProyectil;
             scriptProyectil.velocidad = velocidadProyectil;
-            scriptProyectil.Configurar(direccionDisparo, objetivoEsJugador);
+            scriptProyectil.Configurar(direccionPendiente, objetivoEsJugadorPendiente);
         }
     }
 
