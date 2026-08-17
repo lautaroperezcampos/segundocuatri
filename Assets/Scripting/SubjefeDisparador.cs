@@ -41,6 +41,9 @@ public class SubjefeDisparador : Subjefe
 
         tiempoUltimoDisparo = Time.time;
 
+        // giramos para mirar hacia el jugador antes de disparar, aunque no nos movamos
+        ActualizarDireccion(jugador.position.x > transform.position.x ? 1 : -1);
+
         Vector2 direccionDisparo = (jugador.position - transform.position).normalized;
         PrepararDisparo(direccionDisparo, true); // true = este disparo hiere al Jugador
     }

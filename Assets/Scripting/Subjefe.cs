@@ -37,9 +37,13 @@ public class Subjefe : MonoBehaviour
     public float distanciaGolpe = 1f;
     public float duracionGolpe = 0.12f;
 
+    [Header("Referencias")]
+    public GameObject modeloVisual; // el sprite/hijo separado, para escalarlo sin tocar el collider
+
     protected Transform jugador;
     protected Rigidbody2D rb;
     protected Animator animator;
+    private SpriteRenderer spriteRenderer;
     private Collider2D colisionadorPropio;
     private Collider2D colisionadorJugador;
 
@@ -47,8 +51,12 @@ public class Subjefe : MonoBehaviour
     {
         vidaActual = vidaMaxima;
         rb = GetComponent<Rigidbody2D>();
-        animator = GetComponent<Animator>();
         colisionadorPropio = GetComponent<Collider2D>();
+
+        // el Animator/SpriteRenderer pueden estar en el mismo objeto, o en el hijo "modeloVisual"
+        GameObject fuenteVisual = modeloVisual != null ? modeloVisual : gameObject;
+        animator = fuenteVisual.GetComponent<Animator>();
+        spriteRenderer = fuenteVisual.GetComponent<SpriteRenderer>();
 
         // buscamos al jugador por su tag (asegurate de que el jugador tenga el tag "Player")
         GameObject jugadorObj = GameObject.FindGameObjectWithTag("Player");
@@ -65,12 +73,25 @@ public class Subjefe : MonoBehaviour
 
         if (horizontal != 0)
         {
-            direccion = horizontal > 0 ? 1 : -1;
+            ActualizarDireccion(horizontal > 0 ? 1 : -1);
         }
 
         if (animator != null)
         {
             animator.SetBool("Caminando", horizontal != 0);
+        }
+    }
+
+    // actualiza hacia donde "mira" el subjefe y voltea el sprite en consecuencia.
+    // la usa Mover() al caminar, y la pueden usar tambien clases hijas (por ejemplo
+    // para girar hacia el jugador antes de disparar, aunque no se este moviendo)
+    protected void ActualizarDireccion(int nuevaDireccion)
+    {
+        direccion = nuevaDireccion;
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.flipX = direccion < 0;
         }
     }
 
@@ -143,37 +164,32 @@ public class Subjefe : MonoBehaviour
             return; // muerto de verdad: no se mueve, no ataca, no se puede poseer
         }
 
-        enSuelo = Physics2D.Raycast(transform.position, Vector2.down, distanciaChequeoSuelo, capaSuelo);
+        // el rayo sale desde el borde de ABAJO del collider real (no del pivote del objeto),
+        // asi funciona bien sin importar el Offset/Size que le hayas puesto al Box Collider2D
+        Vector2 origenRaycast = colisionadorPropio != null
+            ? new Vector2(colisionadorPropio.bounds.center.x, colisionadorPropio.bounds.min.y)
+            : (Vector2)transform.position;
 
-        if (jugador == null)
-        {
-            Debug.LogWarning("Subjefe: no encontro al Jugador (revisa el Tag 'Player')");
-            return;
-        }
+        enSuelo = Physics2D.Raycast(origenRaycast, Vector2.down, distanciaChequeoSuelo, capaSuelo);
+
+        if (jugador == null) return;
 
         bool enRango;
-        float distanciaMostrar;
 
         if (colisionadorPropio != null && colisionadorJugador != null)
         {
-            // distancia real entre bordes, no entre centros - asi funciona bien
-            // sin importar el tamaño (Scale) del subjefe o del jugador
+            // distancia real entre bordes, no entre centros
             float distanciaBordes = colisionadorPropio.Distance(colisionadorJugador).distance;
             enRango = distanciaBordes <= rangoDeteccion;
-            distanciaMostrar = distanciaBordes;
         }
         else
         {
-            Debug.LogWarning("Subjefe: falta un Collider2D (propio=" + (colisionadorPropio != null) + ", jugador=" + (colisionadorJugador != null) + ")");
             // respaldo por si falta algun collider: comparamos centros como antes
             float distancia = Vector2.Distance(transform.position, jugador.position);
             enRango = distancia <= rangoDeteccion;
-            distanciaMostrar = distancia;
         }
 
         bool vidaBaja = vidaActual <= vidaMaxima * porcentajeVidaParaPoseer;
-
-        Debug.Log("Subjefe: distancia=" + distanciaMostrar + " rangoDeteccion=" + rangoDeteccion + " enRango=" + enRango + " | vida=" + vidaActual + "/" + vidaMaxima + " vidaBaja=" + vidaBaja);
 
         esPoseible = enRango && vidaBaja;
     }

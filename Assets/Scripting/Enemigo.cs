@@ -27,6 +27,11 @@ public class Enemigo : MonoBehaviour
     private Transform jugador;
     private Jugador scriptJugador;
     private Rigidbody2D rb;
+    private Animator animator;
+    private SpriteRenderer spriteRenderer;
+
+    [Header("Referencias")]
+    public GameObject modeloVisual; // el sprite/hijo separado (Animator y SpriteRenderer viven ahi)
 
     [HideInInspector]
     public SpawnerEnemigos spawner; // asignado automaticamente por el spawner al crearlo
@@ -35,6 +40,10 @@ public class Enemigo : MonoBehaviour
     {
         vidaActual = vidaMaxima;
         rb = GetComponent<Rigidbody2D>();
+
+        GameObject fuenteVisual = modeloVisual != null ? modeloVisual : gameObject;
+        animator = fuenteVisual.GetComponent<Animator>();
+        spriteRenderer = fuenteVisual.GetComponent<SpriteRenderer>();
 
         GameObject jugadorObj = GameObject.FindGameObjectWithTag("Player");
         if (jugadorObj != null)
@@ -58,6 +67,11 @@ public class Enemigo : MonoBehaviour
         else
         {
             rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+
+            if (animator != null)
+            {
+                animator.SetBool("Caminando", false);
+            }
         }
 
         // si esta lo bastante cerca, intenta atacar (con cooldown para no pegar cada frame)
@@ -71,6 +85,16 @@ public class Enemigo : MonoBehaviour
     {
         direccion = jugador.position.x > transform.position.x ? 1 : -1;
         rb.linearVelocity = new Vector2(direccion * velocidad, rb.linearVelocity.y);
+
+        if (animator != null)
+        {
+            animator.SetBool("Caminando", true);
+        }
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.flipX = direccion < 0;
+        }
     }
 
     void IntentarAtacar()
@@ -80,6 +104,11 @@ public class Enemigo : MonoBehaviour
             tiempoUltimoAtaque = Time.time;
 
             MostrarGolpeVisual();
+
+            if (animator != null)
+            {
+                animator.SetTrigger("Atacando");
+            }
 
             Collider2D[] impactos = Physics2D.OverlapCircleAll(transform.position, rangoAtaque);
 
@@ -129,6 +158,11 @@ public class Enemigo : MonoBehaviour
     void Morir()
     {
         Debug.Log("Enemigo murio");
+
+        if (animator != null)
+        {
+            animator.SetTrigger("Muerto");
+        }
 
         if (spawner != null)
         {
