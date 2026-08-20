@@ -7,6 +7,13 @@ public class ZonaCamaraFija : MonoBehaviour
     [Header("Punto donde se centra la camara")]
     public Transform puntoCamaraFija; // arrastra un GameObject vacio ubicado en el centro de la arena
 
+    [Header("Zoom (opcional)")]
+    public bool cambiarZoom = false;
+    public float sizeZoom = 8f; // el "Orthographic Size" que va a tener la camara en esta zona
+
+    [Header("Enemigos (opcional)")]
+    public SpawnerEnemigos spawnerEnemigos; // arrastra aca el Spawner de la arena, si esta zona tiene que activarlo
+
     private CamaraSeguimiento camara;
 
     void Start()
@@ -20,7 +27,13 @@ public class ZonaCamaraFija : MonoBehaviour
 
         if (camara != null && puntoCamaraFija != null)
         {
-            camara.FijarCamara(puntoCamaraFija.position);
+            float size = cambiarZoom ? sizeZoom : -1f;
+            camara.FijarCamara(puntoCamaraFija.position, size);
+        }
+
+        if (spawnerEnemigos != null)
+        {
+            spawnerEnemigos.ActivarDesdeAfuera();
         }
     }
 

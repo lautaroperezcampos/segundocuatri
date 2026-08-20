@@ -24,16 +24,13 @@ public class SpawnerEnemigos : MonoBehaviour
 
     void OnTriggerEnter2D(Collider2D otro)
     {
-        if (yaSeActivo) return;
-
         // se activa si entra el Jugador normal, o el Subjefe (cuando esta poseido)
         bool esJugador = otro.GetComponent<Jugador>() != null;
         bool esSubjefe = otro.GetComponent<Subjefe>() != null;
 
         if (esJugador || esSubjefe)
         {
-            yaSeActivo = true;
-            ActivarSpawn();
+            ActivarDesdeAfuera();
         }
     }
 
@@ -43,6 +40,16 @@ public class SpawnerEnemigos : MonoBehaviour
     void ActivarSpawn()
     {
         StartCoroutine(ManejarOleada());
+    }
+
+    // llamalo desde otro script (por ejemplo ZonaCamaraFija) para disparar la oleada
+    // sin depender del propio Collider2D/Trigger de este Spawner
+    public void ActivarDesdeAfuera()
+    {
+        if (yaSeActivo) return;
+
+        yaSeActivo = true;
+        ActivarSpawn();
     }
 
     IEnumerator ManejarOleada()

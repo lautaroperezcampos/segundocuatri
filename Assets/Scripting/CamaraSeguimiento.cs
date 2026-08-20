@@ -13,9 +13,20 @@ public class CamaraSeguimiento : MonoBehaviour
     private bool camaraFija = false;
     private Vector3 posicionFija;
 
+    private Camera camara;
+    private float sizeOriginal; // el zoom normal, para volver a el al salir de una zona
+    private float sizeDeseado;
+
     void Start()
     {
         offsetZ = transform.position.z;
+        camara = GetComponent<Camera>();
+
+        if (camara != null)
+        {
+            sizeOriginal = camara.orthographicSize;
+            sizeDeseado = sizeOriginal;
+        }
     }
 
     void LateUpdate()
@@ -33,6 +44,11 @@ public class CamaraSeguimiento : MonoBehaviour
         }
 
         transform.position = Vector3.Lerp(transform.position, posicionDeseada, suavizado * Time.deltaTime);
+
+        if (camara != null)
+        {
+            camara.orthographicSize = Mathf.Lerp(camara.orthographicSize, sizeDeseado, suavizado * Time.deltaTime);
+        }
     }
 
     public void CambiarObjetivo(Transform nuevoObjetivo)
@@ -40,16 +56,23 @@ public class CamaraSeguimiento : MonoBehaviour
         objetivo = nuevoObjetivo;
     }
 
-    // llamado por una ZonaCamaraFija cuando el jugador entra a un area de pantalla fija
-    public void FijarCamara(Vector3 posicion)
+    // llamado por una ZonaCamaraFija cuando el jugador entra a un area de pantalla fija.
+    // "nuevoSize" es opcional: si le pasas un numero <= 0, mantiene el zoom que tenia
+    public void FijarCamara(Vector3 posicion, float nuevoSize = -1f)
     {
         camaraFija = true;
         posicionFija = new Vector3(posicion.x, posicion.y, offsetZ);
+
+        if (nuevoSize > 0f)
+        {
+            sizeDeseado = nuevoSize;
+        }
     }
 
     // llamado al salir del area, para que vuelva a seguir al objetivo normal
     public void VolverASeguir()
     {
         camaraFija = false;
+        sizeDeseado = sizeOriginal; // tambien vuelve al zoom original
     }
 }

@@ -207,6 +207,9 @@ public class Subjefe : MonoBehaviour
         }
     }
 
+    [Header("Al morir")]
+    public float tiempoAntesDeDesaparecer = 2f; // le da tiempo a que se vea la animacion de muerte
+
     protected virtual void Morir()
     {
         estaMuerto = true;
@@ -215,12 +218,22 @@ public class Subjefe : MonoBehaviour
         if (rb != null)
         {
             rb.linearVelocity = Vector2.zero;
+            rb.bodyType = RigidbodyType2D.Kinematic; // se queda congelado en el lugar, sin gravedad
         }
 
         if (animator != null)
         {
             animator.SetTrigger("Muerto");
         }
+
+        // el collider pasa a Trigger: ya no bloquea el paso, pero el cuerpo no se cae
+        if (colisionadorPropio != null)
+        {
+            colisionadorPropio.isTrigger = true;
+        }
+
+        // desaparece del todo despues de un rato, dejando ver la animacion primero
+        Destroy(gameObject, tiempoAntesDeDesaparecer);
         // aca despues metemos drop de recompensa, etc.
     }
 
