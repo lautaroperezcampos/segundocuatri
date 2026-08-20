@@ -6,6 +6,10 @@ public class Jugador : MonoBehaviour
     public int vidaMaxima = 100;
     public int vidaActual;
 
+    [Header("Regeneracion")]
+    public float intervaloRegeneracion = 5f; // segundos entre cada punto de vida recuperado
+    private float tiempoUltimaRegeneracion;
+
     [Header("Movimiento")]
     public float velocidad = 5f;
     private Rigidbody2D rb;
@@ -65,6 +69,7 @@ public class Jugador : MonoBehaviour
     {
         if (estaMuerto) return; // muerto: ignoramos todos los controles
 
+        RegenerarVida();
         ChequearSuelo();
         BuscarSubjefePoseible();
         ManejarInputPosesion();
@@ -78,6 +83,18 @@ public class Jugador : MonoBehaviour
         {
             ManejarInputAtaqueSubjefe();
             ManejarInputSaltoSubjefe();
+        }
+    }
+
+    void RegenerarVida()
+    {
+        if (vidaActual >= vidaMaxima) return;
+
+        if (Time.time >= tiempoUltimaRegeneracion + intervaloRegeneracion)
+        {
+            tiempoUltimaRegeneracion = Time.time;
+            vidaActual++;
+            vidaActual = Mathf.Min(vidaActual, vidaMaxima);
         }
     }
 
