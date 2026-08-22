@@ -7,8 +7,18 @@ public class Subjefe : MonoBehaviour
     public int vidaActual;
 
     [Header("Movimiento")]
-    public float velocidad = 3f; // usado cuando el jugador lo posee
+    public float velocidad = 3f; // usado cuando el jugador lo posee, y tambien al perseguir
     protected int direccion = 1; // 1 = mirando a la derecha, -1 = mirando a la izquierda
+
+    [Header("Persecucion (cuando NO esta poseido)")]
+    public bool persigueAlJugador = true;
+    public float rangoPersecucion = 6f; // a que distancia empieza a caminar hacia el jugador
+
+    [Header("Ataque cuerpo a cuerpo contra el jugador (cuando NO esta poseido)")]
+    public int dañoContraJugador = 10;
+    public float rangoAtaqueJugador = 1.2f;
+    public float cooldownAtaqueJugador = 1.5f;
+    private float tiempoUltimoAtaqueJugador = -999f;
 
     [Header("Salto")]
     public float fuerzaSalto = 8f;
@@ -36,6 +46,9 @@ public class Subjefe : MonoBehaviour
     public float tamañoGolpe = 0.4f;
     public float distanciaGolpe = 1f;
     public float duracionGolpe = 0.12f;
+
+    [Header("Al morir")]
+    public float tiempoAntesDeDesaparecer = 2f; // le da tiempo a que se vea la animacion de muerte
 
     [Header("Referencias")]
     public GameObject modeloVisual; // el sprite/hijo separado, para escalarlo sin tocar el collider
@@ -95,7 +108,7 @@ public class Subjefe : MonoBehaviour
         }
     }
 
-    public void Saltar()
+    public virtual void Saltar()
     {
         if (enSuelo)
         {
@@ -116,7 +129,7 @@ public class Subjefe : MonoBehaviour
 
     public Collider2D ObtenerCollider()
     {
-        return GetComponent<Collider2D>();
+        return colisionadorPropio;
     }
 
     public virtual void Atacar()
@@ -174,6 +187,13 @@ public class Subjefe : MonoBehaviour
 
         if (jugador == null) return;
 
+        // persigue y ataca al jugador, SOLO si no esta poseido ahora mismo
+        if (!estaPoseido && persigueAlJugador)
+        {
+            ManejarPersecucion();
+            IntentarAtacarAlJugador();
+        }
+
         bool enRango;
 
         if (colisionadorPropio != null && colisionadorJugador != null)
@@ -194,6 +214,57 @@ public class Subjefe : MonoBehaviour
         esPoseible = enRango && vidaBaja;
     }
 
+    void ManejarPersecucion()
+    {
+        float distancia = ObtenerDistanciaAlJugador();
+
+        // camina hacia el jugador solo si esta en rango de persecucion PERO todavia
+        // no lo suficientemente cerca como para atacarlo (si no, se frena y solo pega)
+        if (distancia <= rangoPersecucion && distancia > rangoAtaqueJugador)
+        {
+            float horizontal = jugador.position.x > transform.position.x ? 1f : -1f;
+            Mover(horizontal);
+        }
+        else
+        {
+            Mover(0f); // ya esta en rango de ataque, o muy lejos: se queda quieto
+        }
+    }
+
+    protected void IntentarAtacarAlJugador()
+    {
+        float distancia = ObtenerDistanciaAlJugador();
+        if (distancia > rangoAtaqueJugador) return;
+        if (Time.time < tiempoUltimoAtaqueJugador + cooldownAtaqueJugador) return;
+
+        tiempoUltimoAtaqueJugador = Time.time;
+
+        MostrarGolpeVisual();
+
+        if (animator != null)
+        {
+            animator.SetTrigger("Atacando");
+        }
+
+        Jugador scriptJugador = jugador.GetComponent<Jugador>();
+        if (scriptJugador != null)
+        {
+            scriptJugador.RecibirDaño(dañoContraJugador);
+        }
+    }
+
+    // distancia real entre bordes de collider (si hay ambos colliders disponibles),
+    // o entre centros como respaldo - asi funciona bien sea cual sea el tamaño del sprite
+    protected float ObtenerDistanciaAlJugador()
+    {
+        if (colisionadorPropio != null && colisionadorJugador != null)
+        {
+            return colisionadorPropio.Distance(colisionadorJugador).distance;
+        }
+
+        return Vector2.Distance(transform.position, jugador.position);
+    }
+
     public void RecibirDaño(int cantidad)
     {
         if (estaMuerto) return; // ya esta muerto, ignoramos mas daño
@@ -206,9 +277,6 @@ public class Subjefe : MonoBehaviour
             Morir();
         }
     }
-
-    [Header("Al morir")]
-    public float tiempoAntesDeDesaparecer = 2f; // le da tiempo a que se vea la animacion de muerte
 
     protected virtual void Morir()
     {
@@ -237,11 +305,14 @@ public class Subjefe : MonoBehaviour
         // aca despues metemos drop de recompensa, etc.
     }
 
-    // dibuja el rango de deteccion y el raycast de suelo en el editor
+    // dibuja el rango de deteccion, el rango de persecucion y el raycast de suelo en el editor
     protected virtual void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, rangoDeteccion);
+
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, rangoPersecucion);
 
         Gizmos.color = Color.green;
         Gizmos.DrawLine(transform.position, transform.position + Vector3.down * distanciaChequeoSuelo);
