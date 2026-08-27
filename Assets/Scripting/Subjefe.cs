@@ -25,6 +25,7 @@ public class Subjefe : MonoBehaviour
     public float distanciaChequeoSuelo = 0.6f; // ajustar segun el alto del sprite
     public LayerMask capaSuelo; // elegi que layer cuenta como "suelo" en el Inspector
     private bool enSuelo = false;
+    private Collider2D plataformaActual; // la que esta pisando ahora mismo, si la hay
 
     [Header("Posesion")]
     public bool esPoseible = false; // se activa cuando el jugador puede poseerlo
@@ -132,14 +133,26 @@ public class Subjefe : MonoBehaviour
         return colisionadorPropio;
     }
 
+    public Collider2D ObtenerPlataformaActual()
+    {
+        return plataformaActual;
+    }
+
     public virtual void Atacar()
     {
         MostrarGolpeVisual();
+
+        if (animator != null)
+        {
+            animator.SetTrigger("Atacando");
+        }
 
         Collider2D[] impactos = Physics2D.OverlapCircleAll(transform.position, rangoAtaque);
 
         foreach (Collider2D impacto in impactos)
         {
+            if (impacto.gameObject == gameObject) continue; // no nos pegamos a nosotros mismos
+
             Puerta puerta = impacto.GetComponent<Puerta>();
             if (puerta != null)
             {
@@ -151,7 +164,20 @@ public class Subjefe : MonoBehaviour
             {
                 enemigo.MorirInstantaneo(); // el subjefe mata de un solo golpe
             }
+
+            Subjefe otroSubjefe = impacto.GetComponent<Subjefe>();
+            if (otroSubjefe != null)
+            {
+                otroSubjefe.RecibirDaño(dañoAtaque);
+            }
         }
+    }
+
+    // se llama cada frame mientras el jugador MANTIENE apretado el boton de atacar,
+    // antes de soltar. Por defecto no hace nada (los titanes cuerpo a cuerpo no
+    // necesitan mira); el SubjefeDisparador la usa para la mira automatica.
+    public virtual void MantenerApuntado()
+    {
     }
 
     protected void MostrarGolpeVisual()
@@ -183,7 +209,9 @@ public class Subjefe : MonoBehaviour
             ? new Vector2(colisionadorPropio.bounds.center.x, colisionadorPropio.bounds.min.y)
             : (Vector2)transform.position;
 
-        enSuelo = Physics2D.Raycast(origenRaycast, Vector2.down, distanciaChequeoSuelo, capaSuelo);
+        RaycastHit2D golpeSuelo = Physics2D.Raycast(origenRaycast, Vector2.down, distanciaChequeoSuelo, capaSuelo);
+        enSuelo = golpeSuelo.collider != null;
+        plataformaActual = golpeSuelo.collider;
 
         if (jugador == null) return;
 

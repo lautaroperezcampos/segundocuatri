@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 public class Jugador : MonoBehaviour
 {
@@ -21,6 +22,10 @@ public class Jugador : MonoBehaviour
     public float distanciaChequeoSuelo = 0.6f; // ajustar segun el alto del sprite
     public LayerMask capaSuelo; // elegi que layer cuenta como "suelo" en el Inspector
     private bool enSuelo = false;
+
+    [Header("Bajar de plataformas (abajo + salto)")]
+    public float tiempoIgnorarPlataforma = 0.4f; // cuanto tiempo se atraviesa antes de volver a ser solida
+    private Collider2D plataformaActual; // la que esta pisando ahora mismo, si la hay
 
     [Header("Escalera diagonal")]
     private bool tocandoEscalera = false;
@@ -100,7 +105,9 @@ public class Jugador : MonoBehaviour
 
     void ChequearSuelo()
     {
-        enSuelo = Physics2D.Raycast(transform.position, Vector2.down, distanciaChequeoSuelo, capaSuelo);
+        RaycastHit2D golpe = Physics2D.Raycast(transform.position, Vector2.down, distanciaChequeoSuelo, capaSuelo);
+        enSuelo = golpe.collider != null;
+        plataformaActual = golpe.collider;
 
         if (animator != null)
         {
@@ -307,9 +314,33 @@ public class Jugador : MonoBehaviour
 
     void ManejarInputSalto()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && enSuelo)
+        // GetButtonDown("Jump") responde a la tecla Espacio Y a un boton de joystick a la vez
+        if (!Input.GetButtonDown("Jump") || !enSuelo) return;
+
+        float vertical = Input.GetAxisRaw("Vertical");
+
+        // si mantenes "abajo" y apretas saltar, en vez de saltar te bajas
+        // atravesando la plataforma de un solo sentido en la que estas parado
+        if (vertical < -0.5f && plataformaActual != null)
+        {
+            StartCoroutine(IgnorarPlataformaTemporalmente(colisionador, plataformaActual));
+        }
+        else
         {
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, fuerzaSalto);
+        }
+    }
+
+    // generica: sirve tanto para el jugador como para el subjefe poseido,
+    // pasandole el collider correspondiente cada vez
+    IEnumerator IgnorarPlataformaTemporalmente(Collider2D colliderPropio, Collider2D plataforma)
+    {
+        Physics2D.IgnoreCollision(colliderPropio, plataforma, true);
+        yield return new WaitForSeconds(tiempoIgnorarPlataforma);
+
+        if (plataforma != null && colliderPropio != null)
+        {
+            Physics2D.IgnoreCollision(colliderPropio, plataforma, false);
         }
     }
 
@@ -317,7 +348,17 @@ public class Jugador : MonoBehaviour
     {
         if (subjefePoseido == null) return;
 
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (!Input.GetButtonDown("Jump")) return;
+
+        float vertical = Input.GetAxisRaw("Vertical");
+        Collider2D plataformaSubjefe = subjefePoseido.ObtenerPlataformaActual();
+
+        // mismo truco que el jugador: abajo + salto = bajar atravesando la plataforma
+        if (vertical < -0.5f && plataformaSubjefe != null)
+        {
+            StartCoroutine(IgnorarPlataformaTemporalmente(subjefePoseido.ObtenerCollider(), plataformaSubjefe));
+        }
+        else
         {
             subjefePoseido.Saltar();
         }
@@ -325,8 +366,8 @@ public class Jugador : MonoBehaviour
 
     void ManejarInputAtaque()
     {
-        // atacamos con click izquierdo
-        if (Input.GetMouseButtonDown(0))
+        // GetButtonDown("Fire1") responde a click izquierdo Y a un boton de joystick a la vez
+        if (Input.GetButtonDown("Fire1"))
         {
             Atacar();
         }
@@ -336,8 +377,15 @@ public class Jugador : MonoBehaviour
     {
         if (subjefePoseido == null) return;
 
-        // mismo click, pero ataca el subjefe (por ejemplo para romper puertas)
-        if (Input.GetMouseButtonDown(0))
+        // mientras mantenes apretado, el subjefe busca objetivo y muestra la mira
+        // (para el Subjefe normal esto no hace nada, solo lo usa el SubjefeDisparador)
+        if (Input.GetButton("Fire1"))
+        {
+            subjefePoseido.MantenerApuntado();
+        }
+
+        // recien al SOLTAR se dispara/ataca de verdad
+        if (Input.GetButtonUp("Fire1"))
         {
             subjefePoseido.Atacar();
         }
@@ -424,10 +472,10 @@ public class Jugador : MonoBehaviour
 
     void ManejarInputPosesion()
     {
-        // salir de la posesion con E de nuevo
+        // salir de la posesion con E o con un boton de joystick (Fire2)
         if (estaPoseyendo)
         {
-            if (Input.GetKeyDown(KeyCode.E))
+            if (Input.GetKeyDown(KeyCode.E) || Input.GetButtonDown("Fire2"))
             {
                 DejarDePoseer();
             }
@@ -436,7 +484,7 @@ public class Jugador : MonoBehaviour
 
         if (subjefeCercano == null) return;
 
-        if (Input.GetKeyDown(KeyCode.E))
+        if (Input.GetKeyDown(KeyCode.E) || Input.GetButtonDown("Fire2"))
         {
             PoseerSubjefe(subjefeCercano);
         }
