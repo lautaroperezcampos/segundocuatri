@@ -58,6 +58,7 @@ public class Subjefe : MonoBehaviour
     protected Rigidbody2D rb;
     protected Animator animator;
     private SpriteRenderer spriteRenderer;
+    private EfectoFlashDaño efectoFlash;
     private Collider2D colisionadorPropio;
     private Collider2D colisionadorJugador;
 
@@ -71,6 +72,7 @@ public class Subjefe : MonoBehaviour
         GameObject fuenteVisual = modeloVisual != null ? modeloVisual : gameObject;
         animator = fuenteVisual.GetComponent<Animator>();
         spriteRenderer = fuenteVisual.GetComponent<SpriteRenderer>();
+        efectoFlash = fuenteVisual.GetComponent<EfectoFlashDaño>();
 
         // buscamos al jugador por su tag (asegurate de que el jugador tenga el tag "Player")
         GameObject jugadorObj = GameObject.FindGameObjectWithTag("Player");
@@ -299,6 +301,11 @@ public class Subjefe : MonoBehaviour
 
         vidaActual -= cantidad;
         vidaActual = Mathf.Max(vidaActual, 0);
+
+        if (efectoFlash != null)
+        {
+            efectoFlash.Flashear();
+        }
 
         if (vidaActual <= 0)
         {

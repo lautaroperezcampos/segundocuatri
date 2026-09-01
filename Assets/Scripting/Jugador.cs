@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using System.Collections;
 
 public class Jugador : MonoBehaviour
@@ -48,7 +49,10 @@ public class Jugador : MonoBehaviour
     private Subjefe subjefePoseido; // el que estamos controlando ahora mismo
 
     [Header("UI")]
-    public GameObject botonPosesion; // arrastra aca el boton/icono desde el Inspector
+    public GameObject prefabIconoPosesion; // arrastra aca el sprite/icono del boton (ej: "Y")
+    public float alturaIconoPosesion = 1.5f; // que tan arriba del titan aparece
+    private GameObject iconoInstanciado;
+    public Image barraVidaHUD; // arrastra la Image (Fill) de la barra fija en pantalla
 
     [Header("Referencias")]
     public GameObject modeloJugador; // el sprite/visual del jugador, para esconderlo al poseer
@@ -56,6 +60,7 @@ public class Jugador : MonoBehaviour
     public GameObject panelGameOver; // arrastra el panel de UI con el texto y el boton Reintentar
     private SpriteRenderer spriteRenderer;
     private Animator animator;
+    private EfectoFlashDaño efectoFlash;
 
     void Start()
     {
@@ -67,11 +72,14 @@ public class Jugador : MonoBehaviour
         {
             spriteRenderer = modeloJugador.GetComponent<SpriteRenderer>();
             animator = modeloJugador.GetComponent<Animator>();
+            efectoFlash = modeloJugador.GetComponent<EfectoFlashDaño>();
         }
     }
 
     void Update()
     {
+        ActualizarBarraVidaHUD();
+
         if (estaMuerto) return; // muerto: ignoramos todos los controles
 
         RegenerarVida();
@@ -88,6 +96,14 @@ public class Jugador : MonoBehaviour
         {
             ManejarInputAtaqueSubjefe();
             ManejarInputSaltoSubjefe();
+        }
+    }
+
+    void ActualizarBarraVidaHUD()
+    {
+        if (barraVidaHUD != null)
+        {
+            barraVidaHUD.fillAmount = (float)vidaActual / vidaMaxima;
         }
     }
 
@@ -463,10 +479,27 @@ public class Jugador : MonoBehaviour
             }
         }
 
-        // mostramos u ocultamos el boton segun corresponda
-        if (botonPosesion != null)
+        ActualizarIconoPosesion();
+    }
+
+    void ActualizarIconoPosesion()
+    {
+        if (subjefeCercano != null)
         {
-            botonPosesion.SetActive(subjefeCercano != null);
+            if (iconoInstanciado == null && prefabIconoPosesion != null)
+            {
+                iconoInstanciado = Instantiate(prefabIconoPosesion);
+            }
+
+            if (iconoInstanciado != null)
+            {
+                iconoInstanciado.transform.position = subjefeCercano.transform.position + Vector3.up * alturaIconoPosesion;
+                iconoInstanciado.SetActive(true);
+            }
+        }
+        else if (iconoInstanciado != null)
+        {
+            iconoInstanciado.SetActive(false);
         }
     }
 
@@ -519,9 +552,9 @@ public class Jugador : MonoBehaviour
             modeloJugador.SetActive(false);
         }
 
-        if (botonPosesion != null)
+        if (iconoInstanciado != null)
         {
-            botonPosesion.SetActive(false);
+            iconoInstanciado.SetActive(false);
         }
 
         if (camara != null)
@@ -589,6 +622,11 @@ public class Jugador : MonoBehaviour
         vidaActual = Mathf.Max(vidaActual, 0);
 
         Debug.Log("Recibiste daño, vida restante: " + vidaActual);
+
+        if (efectoFlash != null)
+        {
+            efectoFlash.Flashear();
+        }
 
         if (vidaActual <= 0)
         {

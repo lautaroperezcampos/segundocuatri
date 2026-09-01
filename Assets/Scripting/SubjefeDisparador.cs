@@ -62,10 +62,6 @@ public class SubjefeDisparador : Subjefe
     // el jugador llama a esto (via Atacar()) cuando lo posee y SUELTA el boton
     public override void Atacar()
     {
-        if (Time.time < tiempoUltimoDisparo + cooldownDisparo) return;
-
-        tiempoUltimoDisparo = Time.time;
-
         Vector2 direccionDisparo;
 
         if (objetivoBloqueado != null)
@@ -80,8 +76,15 @@ public class SubjefeDisparador : Subjefe
             direccionDisparo = ObtenerDireccionApuntada();
         }
 
+        // la mira SIEMPRE se esconde al soltar el boton, dispares o no
         OcultarMira();
         objetivoBloqueado = null;
+
+        // recien aca chequeamos el cooldown: si todavia esta recargando, no dispara,
+        // pero la mira ya se escondio arriba de todas formas
+        if (Time.time < tiempoUltimoDisparo + cooldownDisparo) return;
+
+        tiempoUltimoDisparo = Time.time;
 
         PrepararDisparo(direccionDisparo, false); // false = este disparo hiere a Puerta/Enemigo
     }
