@@ -8,6 +8,9 @@ public class Jugador : MonoBehaviour
     public int vidaMaxima = 100;
     public int vidaActual;
 
+    [Header("Caida al vacio")]
+    public float limiteCaidaY = -20f; // si tu Position Y baja de esto, se considera "te caiste"
+
     [Header("Regeneracion")]
     public float intervaloRegeneracion = 5f; // segundos entre cada punto de vida recuperado
     private float tiempoUltimaRegeneracion;
@@ -48,11 +51,17 @@ public class Jugador : MonoBehaviour
     private Subjefe subjefeCercano; // referencia al subjefe que esta en rango
     private Subjefe subjefePoseido; // el que estamos controlando ahora mismo
 
+    [Header("Efectos")]
+    public GameObject prefabParticulasPosesion; // arrastra el prefab del Particle System
+    public float duracionParticulasPosesion = 2f; // por si el efecto no se autodestruye solo
+
     [Header("UI")]
     public GameObject prefabIconoPosesion; // arrastra aca el sprite/icono del boton (ej: "Y")
     public float alturaIconoPosesion = 1.5f; // que tan arriba del titan aparece
     private GameObject iconoInstanciado;
     public Image barraVidaHUD; // arrastra la Image (Fill) de la barra fija en pantalla
+    public Color colorBarraJugador = Color.green;
+    public Color colorBarraSubjefe = new Color(1f, 0.55f, 0f); // naranja, para diferenciar
 
     [Header("Referencias")]
     public GameObject modeloJugador; // el sprite/visual del jugador, para esconderlo al poseer
@@ -82,6 +91,7 @@ public class Jugador : MonoBehaviour
 
         if (estaMuerto) return; // muerto: ignoramos todos los controles
 
+        ChequearCaidaAlVacio();
         RegenerarVida();
         ChequearSuelo();
         BuscarSubjefePoseible();
@@ -99,11 +109,33 @@ public class Jugador : MonoBehaviour
         }
     }
 
+    void ChequearCaidaAlVacio()
+    {
+        float posicionY = estaPoseyendo && subjefePoseido != null
+            ? subjefePoseido.transform.position.y
+            : transform.position.y;
+
+        if (posicionY < limiteCaidaY)
+        {
+            Morir();
+        }
+    }
+
     void ActualizarBarraVidaHUD()
     {
-        if (barraVidaHUD != null)
+        if (barraVidaHUD == null) return;
+
+        if (estaPoseyendo && subjefePoseido != null)
         {
-            barraVidaHUD.fillAmount = (float)vidaActual / vidaMaxima;
+            barraVidaHUD.fillAmount = (float)subjefePoseido.vidaActual / subjefePoseido.vidaMaxima;
+            barraVidaHUD.color = colorBarraSubjefe;
+        }
+        else
+        {
+            float fill = (float)vidaActual / vidaMaxima;
+            barraVidaHUD.fillAmount = fill;
+            barraVidaHUD.color = colorBarraJugador;
+            Debug.Log("Barra HUD actualizada: vidaActual=" + vidaActual + " vidaMaxima=" + vidaMaxima + " fill=" + fill + " barraVidaHUD.fillAmount ahora=" + barraVidaHUD.fillAmount);
         }
     }
 
@@ -135,7 +167,6 @@ public class Jugador : MonoBehaviour
     {
         if (estaMuerto)
         {
-            // dejamos que la gravedad lo siga afectando, pero sin movimiento horizontal
             rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
             return;
         }
@@ -150,18 +181,16 @@ public class Jugador : MonoBehaviour
 
             if (horizontal != 0 && vertical != 0)
             {
-                subiendoEscalera = true; // escala en diagonal
+                subiendoEscalera = true;
             }
             else if (horizontal == 0 && vertical == 0)
             {
-                sostenidoEnEscalera = true; // parado quieto: no se cae
+                sostenidoEnEscalera = true;
             }
-            // si aprieta solo horizontal (sin vertical), sigue caminando derecho normal
         }
 
         ActualizarColisionConPlataforma(subiendoEscalera || sostenidoEnEscalera);
 
-        // el movimiento con fisica va en FixedUpdate, no en Update
         if (estaPoseyendo)
         {
             if (subiendoEscalera)
@@ -188,7 +217,6 @@ public class Jugador : MonoBehaviour
         }
         else if (sostenidoEnEscalera)
         {
-            // se queda flotando en el lugar, sin gravedad, hasta que se mueva o suelte
             rb.bodyType = RigidbodyType2D.Kinematic;
             rb.linearVelocity = Vector2.zero;
         }
@@ -199,9 +227,6 @@ public class Jugador : MonoBehaviour
         }
     }
 
-    // la plataforma que la escalera atraviesa es solida siempre,
-    // EXCEPTO mientras estamos escalando o sostenidos sobre la escalera.
-    // Ignora colision con el collider que este activo en ese momento (jugador o subjefe poseido)
     void ActualizarColisionConPlataforma(bool debeIgnorar)
     {
         if (escaleraActual == null || escaleraActual.plataformaQueAtraviesa == null) return;
@@ -223,14 +248,11 @@ public class Jugador : MonoBehaviour
     {
         Vector2 direccionRampa = escaleraActual.transform.right;
         float vertical = Input.GetAxisRaw("Vertical");
-
-        // si el vertical es negativo (S), invertimos para bajar la rampa
         float sentido = vertical > 0 ? 1f : -1f;
 
         rb.linearVelocity = direccionRampa.normalized * velocidad * sentido;
     }
 
-    // version para cuando se esta controlando al subjefe poseido
     void MoverSubjefeEnEscalera()
     {
         if (subjefePoseido == null || escaleraActual == null) return;
@@ -243,7 +265,6 @@ public class Jugador : MonoBehaviour
 
         subjefePoseido.MoverEnDireccion(direccionRampa.normalized * subjefePoseido.velocidad * sentido);
 
-        // mantenemos al jugador invisible sincronizado con el subjefe
         transform.position = subjefePoseido.transform.position;
     }
 
@@ -274,8 +295,6 @@ public class Jugador : MonoBehaviour
         {
             tocandoEscalera = false;
 
-            // al salir, nos aseguramos de dejar la colision restaurada (solida)
-            // tanto para el jugador como para el subjefe, por si estaba poseido
             if (escalera.plataformaQueAtraviesa != null)
             {
                 Physics2D.IgnoreCollision(colisionador, escalera.plataformaQueAtraviesa, false);
@@ -309,7 +328,6 @@ public class Jugador : MonoBehaviour
             animator.SetBool("Caminando", horizontal != 0);
         }
 
-        // volteamos el sprite segun hacia donde estamos mirando
         if (spriteRenderer != null)
         {
             spriteRenderer.flipX = direccion < 0;
@@ -323,20 +341,15 @@ public class Jugador : MonoBehaviour
         float horizontal = Input.GetAxisRaw("Horizontal");
         subjefePoseido.Mover(horizontal);
 
-        // mantenemos al jugador invisible en la misma posicion del subjefe,
-        // asi los enemigos y otros sistemas que lo buscan por posicion funcionan bien
         transform.position = subjefePoseido.transform.position;
     }
 
     void ManejarInputSalto()
     {
-        // GetButtonDown("Jump") responde a la tecla Espacio Y a un boton de joystick a la vez
         if (!Input.GetButtonDown("Jump") || !enSuelo) return;
 
         float vertical = Input.GetAxisRaw("Vertical");
 
-        // si mantenes "abajo" y apretas saltar, en vez de saltar te bajas
-        // atravesando la plataforma de un solo sentido en la que estas parado
         if (vertical < -0.5f && plataformaActual != null)
         {
             StartCoroutine(IgnorarPlataformaTemporalmente(colisionador, plataformaActual));
@@ -347,8 +360,6 @@ public class Jugador : MonoBehaviour
         }
     }
 
-    // generica: sirve tanto para el jugador como para el subjefe poseido,
-    // pasandole el collider correspondiente cada vez
     IEnumerator IgnorarPlataformaTemporalmente(Collider2D colliderPropio, Collider2D plataforma)
     {
         Physics2D.IgnoreCollision(colliderPropio, plataforma, true);
@@ -369,7 +380,6 @@ public class Jugador : MonoBehaviour
         float vertical = Input.GetAxisRaw("Vertical");
         Collider2D plataformaSubjefe = subjefePoseido.ObtenerPlataformaActual();
 
-        // mismo truco que el jugador: abajo + salto = bajar atravesando la plataforma
         if (vertical < -0.5f && plataformaSubjefe != null)
         {
             StartCoroutine(IgnorarPlataformaTemporalmente(subjefePoseido.ObtenerCollider(), plataformaSubjefe));
@@ -382,7 +392,6 @@ public class Jugador : MonoBehaviour
 
     void ManejarInputAtaque()
     {
-        // GetButtonDown("Fire1") responde a click izquierdo Y a un boton de joystick a la vez
         if (Input.GetButtonDown("Fire1"))
         {
             Atacar();
@@ -393,14 +402,11 @@ public class Jugador : MonoBehaviour
     {
         if (subjefePoseido == null) return;
 
-        // mientras mantenes apretado, el subjefe busca objetivo y muestra la mira
-        // (para el Subjefe normal esto no hace nada, solo lo usa el SubjefeDisparador)
         if (Input.GetButton("Fire1"))
         {
             subjefePoseido.MantenerApuntado();
         }
 
-        // recien al SOLTAR se dispara/ataca de verdad
         if (Input.GetButtonUp("Fire1"))
         {
             subjefePoseido.Atacar();
@@ -416,19 +422,15 @@ public class Jugador : MonoBehaviour
             animator.SetTrigger("Atacando");
         }
 
-        // buscamos en un radio generoso primero, y despues filtramos por la
-        // distancia REAL entre bordes de collider (no entre centros) - asi un
-        // objetivo grande es mas facil de alcanzar sin inflar el rango contra
-        // objetivos chicos
         float radioBusqueda = rangoAtaque + 5f;
         Collider2D[] candidatos = Physics2D.OverlapCircleAll(transform.position, radioBusqueda);
 
         foreach (Collider2D candidato in candidatos)
         {
-            if (candidato == colisionador) continue; // nuestro propio collider, ignorar
+            if (candidato == colisionador) continue;
 
             ColliderDistance2D distancia = candidato.Distance(colisionador);
-            if (distancia.distance > rangoAtaque) continue; // el borde esta muy lejos todavia
+            if (distancia.distance > rangoAtaque) continue;
 
             Subjefe subjefe = candidato.GetComponent<Subjefe>();
             if (subjefe != null)
@@ -449,24 +451,22 @@ public class Jugador : MonoBehaviour
     void MostrarGolpeVisual()
     {
         GameObject golpe = new GameObject("GolpeVisual");
-        golpe.transform.SetParent(transform); // hijo del jugador: se mueve junto con el
+        golpe.transform.SetParent(transform);
         golpe.transform.localPosition = new Vector3(direccion * distanciaGolpe, 0, 0);
         golpe.transform.localScale = Vector3.one * tamañoGolpe;
 
         SpriteRenderer sr = golpe.AddComponent<SpriteRenderer>();
         sr.sprite = spriteGolpe;
         sr.color = colorGolpe;
-        sr.sortingOrder = 10; // para que se vea por encima de todo
+        sr.sortingOrder = 10;
 
         Destroy(golpe, duracionGolpe);
     }
 
     void BuscarSubjefePoseible()
     {
-        // mientras estamos poseyendo, no hace falta buscar otro
         if (estaPoseyendo) return;
 
-        // buscamos todos los subjefes en la escena y vemos si alguno esta poseible
         Subjefe[] subjefes = FindObjectsByType<Subjefe>(FindObjectsSortMode.None);
         subjefeCercano = null;
 
@@ -505,7 +505,6 @@ public class Jugador : MonoBehaviour
 
     void ManejarInputPosesion()
     {
-        // salir de la posesion con E o con un boton de joystick (Fire2)
         if (estaPoseyendo)
         {
             if (Input.GetKeyDown(KeyCode.E) || Input.GetButtonDown("Fire2"))
@@ -527,26 +526,27 @@ public class Jugador : MonoBehaviour
     {
         estaPoseyendo = true;
         subjefePoseido = subjefe;
-        subjefe.estaPoseido = true; // asi el subjefe sabe que no debe atacar solo
+        subjefe.estaPoseido = true;
 
-        // revivimos al subjefe con vida completa al poseerlo
         subjefe.vidaActual = subjefe.vidaMaxima;
 
         Debug.Log("Poseyendo al subjefe: " + subjefe.name);
 
-        // frenamos al jugador y apagamos su fisica para que no pelee
-        // con la sincronizacion de posicion mientras esta escondido
+        // efecto de particulas justo en el momento/lugar de la posesion
+        if (prefabParticulasPosesion != null)
+        {
+            GameObject particulas = Instantiate(prefabParticulasPosesion, subjefe.transform.position, Quaternion.identity);
+            Destroy(particulas, duracionParticulasPosesion);
+        }
+
         rb.linearVelocity = Vector2.zero;
         rb.bodyType = RigidbodyType2D.Kinematic;
 
-        // el collider pasa a ser Trigger: no empuja fisicamente al subjefe,
-        // pero sigue siendo detectable por enemigos, spawners, etc.
         if (colisionador != null)
         {
             colisionador.isTrigger = true;
         }
 
-        // escondemos al jugador mientras posee (sigue existiendo, solo no se ve ni se mueve solo)
         if (modeloJugador != null)
         {
             modeloJugador.SetActive(false);
@@ -569,8 +569,6 @@ public class Jugador : MonoBehaviour
 
         Debug.Log("Dejaste de poseer al subjefe, desaparece");
 
-        // movemos al jugador a donde estaba el subjefe antes de que desaparezca,
-        // y le devolvemos la fisica normal con velocidad limpia
         if (subjefePoseido != null)
         {
             transform.position = subjefePoseido.transform.position;
@@ -602,7 +600,6 @@ public class Jugador : MonoBehaviour
 
     public void RecibirDaño(int cantidad)
     {
-        // mientras poseemos al subjefe, el daño le pega a el, no al jugador
         if (estaPoseyendo && subjefePoseido != null)
         {
             subjefePoseido.RecibirDaño(cantidad);
@@ -616,7 +613,7 @@ public class Jugador : MonoBehaviour
             return;
         }
 
-        if (estaMuerto) return; // ya esta muerto, ignoramos mas daño
+        if (estaMuerto) return;
 
         vidaActual -= cantidad;
         vidaActual = Mathf.Max(vidaActual, 0);
@@ -639,8 +636,6 @@ public class Jugador : MonoBehaviour
         estaMuerto = true;
         Debug.Log("GAME OVER - El jugador murio");
 
-        // por si murio en medio de la escalera (donde queda en modo Kinematic sin gravedad),
-        // forzamos que vuelva a Dynamic para que caiga normal al piso
         rb.bodyType = RigidbodyType2D.Dynamic;
 
         if (animator != null)
@@ -652,11 +647,8 @@ public class Jugador : MonoBehaviour
         {
             panelGameOver.SetActive(true);
         }
-
-        // ya NO congelamos el tiempo, asi se alcanza a ver la animacion de muerte
     }
 
-    // dibuja el rango de ataque y el raycast de suelo en el editor
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
