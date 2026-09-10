@@ -86,7 +86,7 @@ public class SubjefeDisparador : Subjefe
 
         tiempoUltimoDisparo = Time.time;
 
-        PrepararDisparo(direccionDisparo, false); // false = este disparo hiere a Puerta/Enemigo
+        PrepararDisparo(direccionDisparo, false); // false = este disparo hiere a Puerta/Enemigo/Subjefe
     }
 
     // el jugador llama a esto cada frame MIENTRAS mantiene apretado el boton de atacar.
@@ -233,7 +233,7 @@ public class SubjefeDisparador : Subjefe
         {
             scriptProyectil.daño = dañoProyectil;
             scriptProyectil.velocidad = velocidadProyectil;
-            scriptProyectil.Configurar(direccionPendiente, objetivoEsJugadorPendiente);
+            scriptProyectil.Configurar(direccionPendiente, objetivoEsJugadorPendiente, gameObject);
         }
     }
 

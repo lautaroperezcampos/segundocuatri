@@ -8,13 +8,16 @@ public class Proyectil : MonoBehaviour
     public float vidaUtil = 3f; // se autodestruye despues de este tiempo si no choca nada
 
     private Vector2 direccion = Vector2.right;
-    private bool dañaAlJugador = false; // true = hiere al Jugador, false = hiere a Puerta/Enemigo
+    private bool dañaAlJugador = false; // true = hiere al Jugador, false = hiere a Puerta/Enemigo/Subjefe/Diana
+    private GameObject disparadoPor; // quien lo disparo, para no autoimpactarse
 
-    // llamado justo despues de instanciarlo, para configurar hacia donde va y a quien le pega
-    public void Configurar(Vector2 direccionDisparo, bool objetivoEsJugador)
+    // llamado justo despues de instanciarlo, para configurar hacia donde va y a quien le pega.
+    // "disparador" es opcional: pasale el GameObject que lo dispara para que nunca se pegue a si mismo
+    public void Configurar(Vector2 direccionDisparo, bool objetivoEsJugador, GameObject disparador = null)
     {
         direccion = direccionDisparo.normalized;
         dañaAlJugador = objetivoEsJugador;
+        disparadoPor = disparador;
 
         // rotamos el sprite para que apunte hacia donde viaja
         float angulo = Mathf.Atan2(direccion.y, direccion.x) * Mathf.Rad2Deg;
@@ -30,6 +33,8 @@ public class Proyectil : MonoBehaviour
 
     void OnTriggerEnter2D(Collider2D otro)
     {
+        if (disparadoPor != null && otro.gameObject == disparadoPor) return; // nunca nos pegamos a nosotros mismos
+
         if (dañaAlJugador)
         {
             Jugador jugador = otro.GetComponent<Jugador>();
@@ -61,6 +66,14 @@ public class Proyectil : MonoBehaviour
             if (diana != null)
             {
                 diana.RecibirImpacto();
+                Destroy(gameObject);
+                return;
+            }
+
+            Subjefe subjefe = otro.GetComponent<Subjefe>();
+            if (subjefe != null)
+            {
+                subjefe.RecibirDaño(daño);
                 Destroy(gameObject);
             }
         }

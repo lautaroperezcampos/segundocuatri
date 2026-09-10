@@ -291,6 +291,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CamaraSeguimiento
   objetivo: {fileID: 599668498}
   suavizado: 5
+  hacerZoomInicial: 1
+  sizeInicial: 1
+  duracionZoomInicial: 2
+  puntoInicial: {fileID: 0}
 --- !u!114 &141969401
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1253,6 +1257,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Diana
   plataformaAMover: {fileID: 797063789}
+  controladorSala: {fileID: 0}
+  numeroDiana: 0
 --- !u!212 &533270447
 SpriteRenderer:
   serializedVersion: 2
@@ -1721,7 +1727,7 @@ MonoBehaviour:
   tiempoIgnorarPlataforma: 0.4
   "da\xF1o": 10
   rangoAtaque: 2.5
-  spriteGolpe: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
+  spriteGolpe: {fileID: 0}
   colorGolpe: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   "tama\xF1oGolpe": 0.4
   distanciaGolpe: 1

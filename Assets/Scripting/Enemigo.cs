@@ -29,6 +29,7 @@ public class Enemigo : MonoBehaviour
     private Rigidbody2D rb;
     private Animator animator;
     private SpriteRenderer spriteRenderer;
+    private EfectoFlashDaño efectoFlash;
 
     [Header("Referencias")]
     public GameObject modeloVisual; // el sprite/hijo separado (Animator y SpriteRenderer viven ahi)
@@ -44,6 +45,7 @@ public class Enemigo : MonoBehaviour
         GameObject fuenteVisual = modeloVisual != null ? modeloVisual : gameObject;
         animator = fuenteVisual.GetComponent<Animator>();
         spriteRenderer = fuenteVisual.GetComponent<SpriteRenderer>();
+        efectoFlash = fuenteVisual.GetComponent<EfectoFlashDaño>();
 
         GameObject jugadorObj = GameObject.FindGameObjectWithTag("Player");
         if (jugadorObj != null)
@@ -142,6 +144,11 @@ public class Enemigo : MonoBehaviour
     {
         vidaActual -= cantidad;
         Debug.Log("Enemigo recibio daño, vida restante: " + vidaActual);
+
+        if (efectoFlash != null)
+        {
+            efectoFlash.Flashear();
+        }
 
         if (vidaActual <= 0)
         {

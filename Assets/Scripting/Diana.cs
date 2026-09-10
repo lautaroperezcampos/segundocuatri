@@ -4,6 +4,10 @@ public class Diana : MonoBehaviour
     [Header("Plataforma que activa (opcional)")]
     public PlataformaMovil plataformaAMover; // arrastra aca la plataforma que tiene que bajar
 
+    [Header("Sala de 3 dianas (opcional)")]
+    public ControladorSalaSubjefe controladorSala; // arrastra aca el controlador, si esta diana es parte de esa secuencia
+    public int numeroDiana; // 1, 2 o 3 - le dice al controlador cual de las tres es esta
+
     private bool golpeada = false;
     private ControladorDianas controlador;
     void Start()
@@ -29,6 +33,16 @@ public class Diana : MonoBehaviour
         if (plataformaAMover != null)
         {
             plataformaAMover.Bajar();
+        }
+
+        if (controladorSala != null)
+        {
+            Debug.Log("Diana " + numeroDiana + " avisando al ControladorSala");
+            controladorSala.NotificarDianaGolpeada(numeroDiana);
+        }
+        else
+        {
+            Debug.LogWarning("Diana " + name + " no tiene ControladorSala asignado");
         }
     }
 }
