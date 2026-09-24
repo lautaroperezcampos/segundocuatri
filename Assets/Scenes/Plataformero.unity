@@ -730,6 +730,8 @@ MonoBehaviour:
   profundidadBusqueda: 20
   profundidadInicial: 1.5
   duracionEmerger: 0.4
+  distanciaMinimaJugador: 4
+  intentosMaximos: 10
   yaSeActivo: 0
 --- !u!4 &91853982
 Transform:
@@ -1069,7 +1071,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &229746179
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3592,6 +3594,8 @@ MonoBehaviour:
   profundidadBusqueda: 20
   profundidadInicial: 1.5
   duracionEmerger: 0.4
+  distanciaMinimaJugador: 4
+  intentosMaximos: 10
   yaSeActivo: 0
 --- !u!4 &845555531
 Transform:
@@ -3945,7 +3949,7 @@ MonoBehaviour:
   vidaActual: 0
   limiteCaidaY: -40
   intervaloRegeneracion: 1
-  velocidad: 8
+  velocidad: 12
   fuerzaSalto: 23
   distanciaChequeoSuelo: 2
   capaSuelo:
@@ -3959,6 +3963,8 @@ MonoBehaviour:
   "tama\xF1oGolpe": 0.4
   distanciaGolpe: 1
   duracionGolpe: 0.12
+  prefabParticulasGolpe: {fileID: 5460545531199720809, guid: 1c0b7a2ce71612949a0086f0b3833401, type: 3}
+  duracionParticulasGolpe: 0.5
   estaPoseyendo: 0
   prefabParticulasPosesion: {fileID: 6469724951259328556, guid: b97b6b5d60693c441a20dcfe60c4a0b0, type: 3}
   duracionParticulasPosesion: 0.5
@@ -3979,7 +3985,7 @@ Transform:
   m_GameObject: {fileID: 876005407}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -15, y: -6.5, z: 0}
+  m_LocalPosition: {x: 80, y: 10, z: 0}
   m_LocalScale: {x: 1, y: 2, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -4843,6 +4849,8 @@ MonoBehaviour:
   profundidadBusqueda: 20
   profundidadInicial: 1.5
   duracionEmerger: 0.4
+  distanciaMinimaJugador: 4
+  intentosMaximos: 10
   yaSeActivo: 0
 --- !u!4 &1094115309
 Transform:
@@ -6764,7 +6772,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1629798410
 MonoBehaviour:
   m_ObjectHideFlags: 0

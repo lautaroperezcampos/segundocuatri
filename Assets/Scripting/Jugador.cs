@@ -45,6 +45,8 @@ public class Jugador : MonoBehaviour
     public float tamañoGolpe = 0.4f;
     public float distanciaGolpe = 1f; // que tan lejos del jugador aparece
     public float duracionGolpe = 0.12f; // cuanto tiempo se ve antes de desaparecer
+    public GameObject prefabParticulasGolpe; // opcional: un Particle System que sale cuando pegas
+    public float duracionParticulasGolpe = 0.5f;
 
     [Header("Posesion")]
     public bool estaPoseyendo = false;
@@ -132,10 +134,8 @@ public class Jugador : MonoBehaviour
         }
         else
         {
-            float fill = (float)vidaActual / vidaMaxima;
-            barraVidaHUD.fillAmount = fill;
+            barraVidaHUD.fillAmount = (float)vidaActual / vidaMaxima;
             barraVidaHUD.color = colorBarraJugador;
-            Debug.Log("Barra HUD actualizada: vidaActual=" + vidaActual + " vidaMaxima=" + vidaMaxima + " fill=" + fill + " barraVidaHUD.fillAmount ahora=" + barraVidaHUD.fillAmount);
         }
     }
 
@@ -402,11 +402,20 @@ public class Jugador : MonoBehaviour
     {
         if (subjefePoseido == null) return;
 
+        // toque rapido: dispara al instante hacia donde estas mirando/apuntando
+        // con el stick en ese momento, sin necesitar soltar el boton
+        if (Input.GetButtonDown("Fire1"))
+        {
+            subjefePoseido.Atacar();
+        }
+
+        // manteniendo apretado, engancha la mira a un objetivo si pasa cerca
         if (Input.GetButton("Fire1"))
         {
             subjefePoseido.MantenerApuntado();
         }
 
+        // al soltar, si habia un objetivo enganchado, dispara ahi (respetando cooldown)
         if (Input.GetButtonUp("Fire1"))
         {
             subjefePoseido.Atacar();
@@ -422,21 +431,23 @@ public class Jugador : MonoBehaviour
             animator.SetTrigger("Atacando");
         }
 
-        float radioBusqueda = rangoAtaque + 5f;
-        Collider2D[] candidatos = Physics2D.OverlapCircleAll(transform.position, radioBusqueda);
+        // el golpe pega SOLO cerca de donde aparece el sprite amarillo (adelante
+        // tuyo, segun hacia donde mires) - no en un circulo grande alrededor tuyo
+        Vector2 puntoGolpe = (Vector2)transform.position + new Vector2(direccion * distanciaGolpe, 0);
+        Collider2D[] candidatos = Physics2D.OverlapCircleAll(puntoGolpe, rangoAtaque);
+
+        bool pegoAAlgo = false;
 
         foreach (Collider2D candidato in candidatos)
         {
             if (candidato == colisionador) continue;
-
-            ColliderDistance2D distancia = candidato.Distance(colisionador);
-            if (distancia.distance > rangoAtaque) continue;
 
             Subjefe subjefe = candidato.GetComponent<Subjefe>();
             if (subjefe != null)
             {
                 subjefe.RecibirDaño(daño);
                 Debug.Log("Le pegaste al subjefe: " + subjefe.name);
+                pegoAAlgo = true;
             }
 
             Enemigo enemigo = candidato.GetComponent<Enemigo>();
@@ -444,7 +455,14 @@ public class Jugador : MonoBehaviour
             {
                 enemigo.RecibirDaño(daño);
                 Debug.Log("Le pegaste al enemigo: " + enemigo.name);
+                pegoAAlgo = true;
             }
+        }
+
+        // las particulas SOLO aparecen si de verdad le pegaste a algo
+        if (pegoAAlgo)
+        {
+            MostrarParticulasGolpe(puntoGolpe);
         }
     }
 
@@ -461,6 +479,21 @@ public class Jugador : MonoBehaviour
         sr.sortingOrder = 10;
 
         Destroy(golpe, duracionGolpe);
+    }
+
+    void MostrarParticulasGolpe(Vector2 posicion)
+    {
+        if (prefabParticulasGolpe == null) return;
+
+        GameObject particulas = Instantiate(prefabParticulasGolpe, posicion, Quaternion.identity);
+
+        // giramos las particulas para que salgan hacia el lado que estas mirando
+        if (direccion < 0)
+        {
+            particulas.transform.localScale = new Vector3(-1, 1, 1);
+        }
+
+        Destroy(particulas, duracionParticulasGolpe);
     }
 
     void BuscarSubjefePoseible()
@@ -652,7 +685,8 @@ public class Jugador : MonoBehaviour
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, rangoAtaque);
+        Vector2 puntoGolpe = (Vector2)transform.position + new Vector2(direccion * distanciaGolpe, 0);
+        Gizmos.DrawWireSphere(puntoGolpe, rangoAtaque);
 
         Gizmos.color = Color.green;
         Gizmos.DrawLine(transform.position, transform.position + Vector3.down * distanciaChequeoSuelo);

@@ -19,8 +19,23 @@ public class SpawnerEnemigos : MonoBehaviour
     public float profundidadInicial = 1.5f; // cuanto empieza hundido bajo tierra
     public float duracionEmerger = 0.4f; // cuanto tarda en subir
 
+    [Header("Distancia minima al Jugador")]
+    public float distanciaMinimaJugador = 4f; // no spawnea mas cerca del jugador que esto
+    public int intentosMaximos = 10; // cuantas posiciones distintas prueba antes de rendirse
+
     [Header("Activacion")]
     public bool yaSeActivo = false; // para que no se dispare mas de una vez
+
+    private Transform jugador;
+
+    void Start()
+    {
+        GameObject jugadorObj = GameObject.FindGameObjectWithTag("Player");
+        if (jugadorObj != null)
+        {
+            jugador = jugadorObj.transform;
+        }
+    }
 
     void OnTriggerEnter2D(Collider2D otro)
     {
@@ -81,8 +96,29 @@ public class SpawnerEnemigos : MonoBehaviour
             return;
         }
 
-        // posicion X aleatoria cerca del spawner
-        float posX = transform.position.x + Random.Range(-radioSpawn, radioSpawn);
+        float posX = 0f;
+        bool posicionValida = false;
+
+        // probamos varias posiciones X hasta encontrar una que no quede
+        // demasiado cerca del jugador (o hasta agotar los intentos)
+        for (int intento = 0; intento < intentosMaximos; intento++)
+        {
+            float candidataX = transform.position.x + Random.Range(-radioSpawn, radioSpawn);
+
+            if (jugador == null || Mathf.Abs(candidataX - jugador.position.x) >= distanciaMinimaJugador)
+            {
+                posX = candidataX;
+                posicionValida = true;
+                break;
+            }
+        }
+
+        // si ninguna posicion cumplio, usamos la ultima probada igual
+        // (mejor spawnear un poco cerca que no spawnear nada)
+        if (!posicionValida)
+        {
+            posX = transform.position.x + Random.Range(-radioSpawn, radioSpawn);
+        }
 
         // buscamos el suelo real debajo de esa posicion, tirando un rayo hacia abajo
         Vector2 origenRaycast = new Vector2(posX, transform.position.y + alturaBusqueda);

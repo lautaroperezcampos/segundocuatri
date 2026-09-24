@@ -406,6 +406,8 @@ MonoBehaviour:
   "tama\xF1oGolpe": 0.4
   distanciaGolpe: 1
   duracionGolpe: 0.12
+  prefabParticulasGolpe: {fileID: 0}
+  duracionParticulasGolpe: 0.5
   estaPoseyendo: 0
   prefabParticulasPosesion: {fileID: 6469724951259328556, guid: b97b6b5d60693c441a20dcfe60c4a0b0, type: 3}
   duracionParticulasPosesion: 0.5
@@ -450,7 +452,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &400647636
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2701,6 +2703,8 @@ MonoBehaviour:
   profundidadBusqueda: 20
   profundidadInicial: 1.5
   duracionEmerger: 0.4
+  distanciaMinimaJugador: 4
+  intentosMaximos: 10
   yaSeActivo: 0
 --- !u!4 &1280527740
 Transform:

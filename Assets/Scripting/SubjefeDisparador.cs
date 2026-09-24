@@ -25,12 +25,6 @@ public class SubjefeDisparador : Subjefe
 
     private float tiempoUltimoDisparo = -999f;
 
-    // guardamos hacia donde y a quien va el proximo disparo, hasta que la
-    // animacion llegue al frame correcto y lo dispare de verdad
-    private Vector2 direccionPendiente;
-    private bool objetivoEsJugadorPendiente;
-    private bool hayDisparoPendiente = false;
-
     protected override void Update()
     {
         base.Update(); // mantiene toda la logica original: suelo, deteccion de posesion, etc
@@ -56,10 +50,10 @@ public class SubjefeDisparador : Subjefe
         ActualizarDireccion(jugador.position.x > transform.position.x ? 1 : -1);
 
         Vector2 direccionDisparo = (jugador.position - transform.position).normalized;
-        PrepararDisparo(direccionDisparo, true); // true = este disparo hiere al Jugador
+        DispararAhora(direccionDisparo, true); // true = este disparo hiere al Jugador
     }
 
-    // el jugador llama a esto (via Atacar()) cuando lo posee y SUELTA el boton
+    // el jugador llama a esto (via Atacar()) cuando lo posee y aprieta o SUELTA el boton
     public override void Atacar()
     {
         Vector2 direccionDisparo;
@@ -80,13 +74,12 @@ public class SubjefeDisparador : Subjefe
         OcultarMira();
         objetivoBloqueado = null;
 
-        // recien aca chequeamos el cooldown: si todavia esta recargando, no dispara,
-        // pero la mira ya se escondio arriba de todas formas
+        // si todavia esta recargando, no dispara, pero la mira ya se escondio arriba
         if (Time.time < tiempoUltimoDisparo + cooldownDisparo) return;
 
         tiempoUltimoDisparo = Time.time;
 
-        PrepararDisparo(direccionDisparo, false); // false = este disparo hiere a Puerta/Enemigo/Subjefe
+        DispararAhora(direccionDisparo, false); // false = este disparo hiere a Puerta/Enemigo/Subjefe
     }
 
     // el jugador llama a esto cada frame MIENTRAS mantiene apretado el boton de atacar.
@@ -198,34 +191,23 @@ public class SubjefeDisparador : Subjefe
         return new Vector2(direccion, 0);
     }
 
-    // guarda la info del disparo y arranca la animacion; el proyectil todavia NO aparece
-    void PrepararDisparo(Vector2 direccionDisparo, bool objetivoEsJugador)
+    // dispara AL INSTANTE: la animacion es solo visual (no bloquea el disparo),
+    // asi que podes disparar varias veces seguidas sin esperar a que termine
+    // ya no hace falta (el disparo sale al instante, no espera al Animation Event),
+    // pero la dejamos vacia para que el ReenviadorEventosAnimacion.cs no rompa
+    // si todavia tiene el Animation Event conectado en algun clip
+    public void SpawnearProyectilAhora()
     {
-        direccionPendiente = direccionDisparo;
-        objetivoEsJugadorPendiente = objetivoEsJugador;
-        hayDisparoPendiente = true;
+    }
 
+    void DispararAhora(Vector2 direccionDisparo, bool objetivoEsJugador)
+    {
         if (animator != null)
         {
             animator.SetTrigger("Disparando");
         }
-        else
-        {
-            // si no hay animator configurado, disparamos al toque como antes
-            SpawnearProyectilAhora();
-        }
-    }
 
-    // IMPORTANTE: este metodo lo tiene que llamar un Animation Event
-    // puesto en el frame exacto de la animacion de disparo donde queres
-    // que aparezca el proyectil (click derecho en ese frame en la ventana
-    // de Animation > Add Animation Event > elegi esta funcion)
-    public void SpawnearProyectilAhora()
-    {
-        if (!hayDisparoPendiente) return;
-        hayDisparoPendiente = false;
-
-        Vector3 posicionSpawn = transform.position + (Vector3)(direccionPendiente * distanciaSpawnProyectil);
+        Vector3 posicionSpawn = transform.position + (Vector3)(direccionDisparo * distanciaSpawnProyectil);
         GameObject nuevoProyectil = Instantiate(prefabProyectil, posicionSpawn, Quaternion.identity);
 
         Proyectil scriptProyectil = nuevoProyectil.GetComponent<Proyectil>();
@@ -233,7 +215,7 @@ public class SubjefeDisparador : Subjefe
         {
             scriptProyectil.daño = dañoProyectil;
             scriptProyectil.velocidad = velocidadProyectil;
-            scriptProyectil.Configurar(direccionPendiente, objetivoEsJugadorPendiente, gameObject);
+            scriptProyectil.Configurar(direccionDisparo, objetivoEsJugador, gameObject);
         }
     }
 

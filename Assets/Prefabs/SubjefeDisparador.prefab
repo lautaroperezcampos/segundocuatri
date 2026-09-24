@@ -75,7 +75,7 @@ MonoBehaviour:
   tiempoAntesDeDesaparecer: 2
   modeloVisual: {fileID: 4956735789695916242}
   prefabProyectil: {fileID: 141655571910794041, guid: f491ca37ea11e9a4da87c25013c03fb3, type: 3}
-  cooldownDisparo: 2
+  cooldownDisparo: 0.8
   rangoDisparo: 30
   "da\xF1oProyectil": 15
   velocidadProyectil: 25

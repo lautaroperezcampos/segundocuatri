@@ -252,7 +252,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Enemigo
   vidaMaxima: 30
   vidaActual: 0
-  velocidad: 2
+  velocidad: 8
   rangoDeteccion: 20
   "da\xF1oAtaque": 5
   rangoAtaque: 2.5
