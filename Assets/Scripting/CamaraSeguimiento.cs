@@ -5,6 +5,7 @@ public class CamaraSeguimiento : MonoBehaviour
 {
     [Header("A quien sigue")]
     public Transform objetivo; // arrastra el Jugador aca desde el Inspector
+    public float offsetY = 2f; // que tan arriba del jugador se centra la camara
 
     [Header("Suavizado")]
     public float suavizado = 5f; // mas alto = sigue mas rapido/brusco
@@ -83,7 +84,8 @@ public class CamaraSeguimiento : MonoBehaviour
         else
         {
             if (objetivo == null) return;
-            posicionDeseada = new Vector3(objetivo.position.x, objetivo.position.y, offsetZ);
+            // le sumamos offsetY para que la camara quede centrada mas arriba del jugador
+            posicionDeseada = new Vector3(objetivo.position.x, objetivo.position.y + offsetY, offsetZ);
         }
 
         transform.position = Vector3.Lerp(transform.position, posicionDeseada, suavizado * Time.deltaTime);

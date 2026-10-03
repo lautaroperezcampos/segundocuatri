@@ -98,16 +98,13 @@ public class Subjefe : MonoBehaviour
         }
     }
 
-    // actualiza hacia donde "mira" el subjefe y voltea el sprite en consecuencia.
-    // la usa Mover() al caminar, y la pueden usar tambien clases hijas (por ejemplo
-    // para girar hacia el jugador antes de disparar, aunque no se este moviendo)
     protected void ActualizarDireccion(int nuevaDireccion)
     {
         direccion = nuevaDireccion;
 
         if (spriteRenderer != null)
         {
-            spriteRenderer.flipX = direccion < 0;
+            spriteRenderer.flipX = direccion > 0;
         }
     }
 
@@ -119,7 +116,6 @@ public class Subjefe : MonoBehaviour
         }
     }
 
-    // usados por el Jugador para moverlo manualmente por la escalera diagonal
     public void MoverEnDireccion(Vector2 direccionYVelocidad)
     {
         rb.linearVelocity = direccionYVelocidad;
@@ -153,7 +149,7 @@ public class Subjefe : MonoBehaviour
 
         foreach (Collider2D impacto in impactos)
         {
-            if (impacto.gameObject == gameObject) continue; // no nos pegamos a nosotros mismos
+            if (impacto.gameObject == gameObject) continue;
 
             Puerta puerta = impacto.GetComponent<Puerta>();
             if (puerta != null)
@@ -164,7 +160,7 @@ public class Subjefe : MonoBehaviour
             Enemigo enemigo = impacto.GetComponent<Enemigo>();
             if (enemigo != null)
             {
-                enemigo.MorirInstantaneo(); // el subjefe mata de un solo golpe
+                enemigo.MorirInstantaneo();
             }
 
             Subjefe otroSubjefe = impacto.GetComponent<Subjefe>();
@@ -175,9 +171,6 @@ public class Subjefe : MonoBehaviour
         }
     }
 
-    // se llama cada frame mientras el jugador MANTIENE apretado el boton de atacar,
-    // antes de soltar. Por defecto no hace nada (los titanes cuerpo a cuerpo no
-    // necesitan mira); el SubjefeDisparador la usa para la mira automatica.
     public virtual void MantenerApuntado()
     {
     }
@@ -185,7 +178,7 @@ public class Subjefe : MonoBehaviour
     protected void MostrarGolpeVisual()
     {
         GameObject golpe = new GameObject("GolpeVisualSubjefe");
-        golpe.transform.SetParent(transform); // hijo del subjefe: se mueve junto con el
+        golpe.transform.SetParent(transform);
         golpe.transform.localPosition = new Vector3(direccion * distanciaGolpe, 0, 0);
         golpe.transform.localScale = Vector3.one * tamañoGolpe;
 
@@ -202,11 +195,9 @@ public class Subjefe : MonoBehaviour
         if (estaMuerto)
         {
             esPoseible = false;
-            return; // muerto de verdad: no se mueve, no ataca, no se puede poseer
+            return;
         }
 
-        // el rayo sale desde el borde de ABAJO del collider real (no del pivote del objeto),
-        // asi funciona bien sin importar el Offset/Size que le hayas puesto al Box Collider2D
         Vector2 origenRaycast = colisionadorPropio != null
             ? new Vector2(colisionadorPropio.bounds.center.x, colisionadorPropio.bounds.min.y)
             : (Vector2)transform.position;
@@ -217,7 +208,6 @@ public class Subjefe : MonoBehaviour
 
         if (jugador == null) return;
 
-        // persigue y ataca al jugador, SOLO si no esta poseido ahora mismo
         if (!estaPoseido && persigueAlJugador)
         {
             ManejarPersecucion();
@@ -228,13 +218,11 @@ public class Subjefe : MonoBehaviour
 
         if (colisionadorPropio != null && colisionadorJugador != null)
         {
-            // distancia real entre bordes, no entre centros
             float distanciaBordes = colisionadorPropio.Distance(colisionadorJugador).distance;
             enRango = distanciaBordes <= rangoDeteccion;
         }
         else
         {
-            // respaldo por si falta algun collider: comparamos centros como antes
             float distancia = Vector2.Distance(transform.position, jugador.position);
             enRango = distancia <= rangoDeteccion;
         }
@@ -242,14 +230,19 @@ public class Subjefe : MonoBehaviour
         bool vidaBaja = vidaActual <= vidaMaxima * porcentajeVidaParaPoseer;
 
         esPoseible = enRango && vidaBaja;
+
+        if (vidaActual < vidaMaxima)
+        {
+            Debug.Log(gameObject.name + " | vidaActual=" + vidaActual + " / vidaMaxima=" + vidaMaxima
+                + " | umbral=" + (vidaMaxima * porcentajeVidaParaPoseer)
+                + " | vidaBaja=" + vidaBaja + " | enRango=" + enRango + " | esPoseible=" + esPoseible);
+        }
     }
 
     void ManejarPersecucion()
     {
         float distancia = ObtenerDistanciaAlJugador();
 
-        // camina hacia el jugador solo si esta en rango de persecucion PERO todavia
-        // no lo suficientemente cerca como para atacarlo (si no, se frena y solo pega)
         if (distancia <= rangoPersecucion && distancia > rangoAtaqueJugador)
         {
             float horizontal = jugador.position.x > transform.position.x ? 1f : -1f;
@@ -257,7 +250,7 @@ public class Subjefe : MonoBehaviour
         }
         else
         {
-            Mover(0f); // ya esta en rango de ataque, o muy lejos: se queda quieto
+            Mover(0f);
         }
     }
 
@@ -283,8 +276,6 @@ public class Subjefe : MonoBehaviour
         }
     }
 
-    // distancia real entre bordes de collider (si hay ambos colliders disponibles),
-    // o entre centros como respaldo - asi funciona bien sea cual sea el tamaño del sprite
     protected float ObtenerDistanciaAlJugador()
     {
         if (colisionadorPropio != null && colisionadorJugador != null)
@@ -297,10 +288,12 @@ public class Subjefe : MonoBehaviour
 
     public void RecibirDaño(int cantidad)
     {
-        if (estaMuerto) return; // ya esta muerto, ignoramos mas daño
+        if (estaMuerto) return;
 
         vidaActual -= cantidad;
         vidaActual = Mathf.Max(vidaActual, 0);
+
+        Debug.Log(gameObject.name + " RecibirDaño(" + cantidad + ") llamado. vidaActual ahora=" + vidaActual);
 
         if (efectoFlash != null)
         {
@@ -321,7 +314,7 @@ public class Subjefe : MonoBehaviour
         if (rb != null)
         {
             rb.linearVelocity = Vector2.zero;
-            rb.bodyType = RigidbodyType2D.Kinematic; // se queda congelado en el lugar, sin gravedad
+            rb.bodyType = RigidbodyType2D.Kinematic;
         }
 
         if (animator != null)
@@ -329,18 +322,14 @@ public class Subjefe : MonoBehaviour
             animator.SetTrigger("Muerto");
         }
 
-        // el collider pasa a Trigger: ya no bloquea el paso, pero el cuerpo no se cae
         if (colisionadorPropio != null)
         {
             colisionadorPropio.isTrigger = true;
         }
 
-        // desaparece del todo despues de un rato, dejando ver la animacion primero
         Destroy(gameObject, tiempoAntesDeDesaparecer);
-        // aca despues metemos drop de recompensa, etc.
     }
 
-    // dibuja el rango de deteccion, el rango de persecucion y el raycast de suelo en el editor
     protected virtual void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;

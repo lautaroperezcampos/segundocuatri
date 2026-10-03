@@ -88,6 +88,14 @@ public class SpawnerEnemigos : MonoBehaviour
         vivosActuales--;
     }
 
+    // true SOLO cuando ya solto todos los enemigos que tenia que soltar (no le
+    // quedan mas por spawnear) - usalo junto con "no quedan enemigos vivos" para
+    // saber si la oleada termino de verdad, y no solo un hueco momentaneo entre spawns
+    public bool OleadaTerminada()
+    {
+        return totalSpawnados >= cantidad;
+    }
+
     void SpawnearUno()
     {
         if (prefabEnemigo == null)

@@ -350,7 +350,10 @@ public class Jugador : MonoBehaviour
 
         float vertical = Input.GetAxisRaw("Vertical");
 
-        if (vertical < -0.5f && plataformaActual != null)
+        // si la plataforma tiene el marcador "no atravesable", nunca la dejamos atravesar
+        bool sePuedeAtravesar = plataformaActual != null && plataformaActual.GetComponent<PlataformaNoAtravesable>() == null;
+
+        if (vertical < -0.5f && plataformaActual != null && sePuedeAtravesar)
         {
             StartCoroutine(IgnorarPlataformaTemporalmente(colisionador, plataformaActual));
         }
@@ -380,7 +383,10 @@ public class Jugador : MonoBehaviour
         float vertical = Input.GetAxisRaw("Vertical");
         Collider2D plataformaSubjefe = subjefePoseido.ObtenerPlataformaActual();
 
-        if (vertical < -0.5f && plataformaSubjefe != null)
+        // si la plataforma tiene el marcador "no atravesable", nunca la dejamos atravesar
+        bool sePuedeAtravesar = plataformaSubjefe != null && plataformaSubjefe.GetComponent<PlataformaNoAtravesable>() == null;
+
+        if (vertical < -0.5f && plataformaSubjefe != null && sePuedeAtravesar)
         {
             StartCoroutine(IgnorarPlataformaTemporalmente(subjefePoseido.ObtenerCollider(), plataformaSubjefe));
         }

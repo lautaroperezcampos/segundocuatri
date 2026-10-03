@@ -262,6 +262,13 @@ MonoBehaviour:
   "tama\xF1oGolpe": 0.4
   distanciaGolpe: 1
   duracionGolpe: 0.12
+  capaSuelo:
+    serializedVersion: 2
+    m_Bits: 8
+  distanciaChequeoSuelo: 0.6
+  margenHorizontalParaBajar: 1.5
+  diferenciaAlturaParaBajar: 1.5
+  tiempoIgnorarPlataforma: 0.4
   modeloVisual: {fileID: 5702379252478876238}
   spawner: {fileID: 0}
 --- !u!95 &2585447385570898914

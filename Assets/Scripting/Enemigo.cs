@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 public class Enemigo : MonoBehaviour
 {
@@ -24,6 +25,16 @@ public class Enemigo : MonoBehaviour
     public float distanciaGolpe = 1f;
     public float duracionGolpe = 0.12f;
 
+    [Header("Bajar de plataformas persiguiendo (IA mas inteligente)")]
+    public LayerMask capaSuelo; // la misma capa "Suelo" que usan Jugador y Subjefe
+    public float distanciaChequeoSuelo = 0.6f;
+    public float margenHorizontalParaBajar = 1.5f; // que tan alineado en X con el jugador para decidir bajar
+    public float diferenciaAlturaParaBajar = 1.5f; // el jugador tiene que estar al menos esto mas abajo
+    public float tiempoIgnorarPlataforma = 0.4f;
+    private Collider2D colisionadorPropio;
+    private Collider2D plataformaActual;
+    private bool bajandoPlataforma = false;
+
     private Transform jugador;
     private Jugador scriptJugador;
     private Rigidbody2D rb;
@@ -41,6 +52,7 @@ public class Enemigo : MonoBehaviour
     {
         vidaActual = vidaMaxima;
         rb = GetComponent<Rigidbody2D>();
+        colisionadorPropio = GetComponent<Collider2D>();
 
         GameObject fuenteVisual = modeloVisual != null ? modeloVisual : gameObject;
         animator = fuenteVisual.GetComponent<Animator>();
@@ -57,6 +69,8 @@ public class Enemigo : MonoBehaviour
 
     void Update()
     {
+        ChequearSuelo();
+
         if (jugador == null) return;
 
         float distancia = Vector2.Distance(transform.position, jugador.position);
@@ -65,6 +79,7 @@ public class Enemigo : MonoBehaviour
         if (distancia <= rangoDeteccion)
         {
             Perseguir();
+            ConsiderarBajarPlataforma();
         }
         else
         {
@@ -81,6 +96,48 @@ public class Enemigo : MonoBehaviour
         {
             IntentarAtacar();
         }
+    }
+
+    void ChequearSuelo()
+    {
+        if (colisionadorPropio == null) return;
+
+        Vector2 origenRaycast = new Vector2(colisionadorPropio.bounds.center.x, colisionadorPropio.bounds.min.y);
+        RaycastHit2D golpe = Physics2D.Raycast(origenRaycast, Vector2.down, distanciaChequeoSuelo, capaSuelo);
+        plataformaActual = golpe.collider;
+    }
+
+    // si el jugador esta bastante mas abajo y mas o menos alineado en X, se tira
+    // de la plataforma actual (atravesandola un rato) en vez de quedarse pegado
+    // caminando contra el borde como un boludo
+    void ConsiderarBajarPlataforma()
+    {
+        if (bajandoPlataforma) return;
+        if (plataformaActual == null) return;
+        if (plataformaActual.GetComponent<PlataformaNoAtravesable>() != null) return;
+
+        bool jugadorMuchoMasAbajo = (transform.position.y - jugador.position.y) >= diferenciaAlturaParaBajar;
+        bool alineadoHorizontal = Mathf.Abs(jugador.position.x - transform.position.x) <= margenHorizontalParaBajar;
+
+        if (jugadorMuchoMasAbajo && alineadoHorizontal)
+        {
+            StartCoroutine(BajarPlataforma(plataformaActual));
+        }
+    }
+
+    IEnumerator BajarPlataforma(Collider2D plataforma)
+    {
+        bajandoPlataforma = true;
+
+        Physics2D.IgnoreCollision(colisionadorPropio, plataforma, true);
+        yield return new WaitForSeconds(tiempoIgnorarPlataforma);
+
+        if (plataforma != null && colisionadorPropio != null)
+        {
+            Physics2D.IgnoreCollision(colisionadorPropio, plataforma, false);
+        }
+
+        bajandoPlataforma = false;
     }
 
     void Perseguir()

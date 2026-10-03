@@ -8,6 +8,9 @@ public class Diana : MonoBehaviour
     public ControladorSalaSubjefe controladorSala; // arrastra aca el controlador, si esta diana es parte de esa secuencia
     public int numeroDiana; // 1, 2 o 3 - le dice al controlador cual de las tres es esta
 
+    [Header("Puerta con respawn de Subjefe (opcional)")]
+    public ControladorDianaConRespawn controladorSimple; // arrastra aca si esta diana abre una puerta con este sistema
+
     private bool golpeada = false;
     private ControladorDianas controlador;
     void Start()
@@ -37,12 +40,12 @@ public class Diana : MonoBehaviour
 
         if (controladorSala != null)
         {
-            Debug.Log("Diana " + numeroDiana + " avisando al ControladorSala");
             controladorSala.NotificarDianaGolpeada(numeroDiana);
         }
-        else
+
+        if (controladorSimple != null)
         {
-            Debug.LogWarning("Diana " + name + " no tiene ControladorSala asignado");
+            controladorSimple.AbrirPuerta();
         }
     }
 }
