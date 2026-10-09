@@ -6759,6 +6759,10 @@ PrefabInstance:
       propertyPath: velocidad
       value: 12
       objectReference: {fileID: 0}
+    - target: {fileID: 6928117632306186031, guid: c463b56731f40c945913c8f1ed8756bd, type: 3}
+      propertyPath: spriteMiraALaIzquierda
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7848417308264837035, guid: c463b56731f40c945913c8f1ed8756bd, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

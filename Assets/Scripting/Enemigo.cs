@@ -35,6 +35,11 @@ public class Enemigo : MonoBehaviour
     private Collider2D plataformaActual;
     private bool bajandoPlataforma = false;
 
+    [Header("Resbalar si cae arriba del jugador")]
+    public float velocidadResbalar = 4f; // que tan fuerte se desliza hacia el costado
+    public float duracionResbalar = 0.4f; // cuanto tiempo deja de perseguir mientras resbala
+    private float tiempoFinResbalar = 0f;
+
     private Transform jugador;
     private Jugador scriptJugador;
     private Rigidbody2D rb;
@@ -75,19 +80,26 @@ public class Enemigo : MonoBehaviour
 
         float distancia = Vector2.Distance(transform.position, jugador.position);
 
-        // IA simple: si el jugador esta cerca, lo persigue caminando hacia el
-        if (distancia <= rangoDeteccion)
-        {
-            Perseguir();
-            ConsiderarBajarPlataforma();
-        }
-        else
-        {
-            rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+        // mientras esta resbalando (cayo arriba tuyo), no lo dejamos perseguir ni frenar,
+        // asi el empujon hacia el costado no se pisa al instante
+        bool resbalando = Time.time < tiempoFinResbalar;
 
-            if (animator != null)
+        // IA simple: si el jugador esta cerca, lo persigue caminando hacia el
+        if (!resbalando)
+        {
+            if (distancia <= rangoDeteccion)
             {
-                animator.SetBool("Caminando", false);
+                Perseguir();
+                ConsiderarBajarPlataforma();
+            }
+            else
+            {
+                rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+
+                if (animator != null)
+                {
+                    animator.SetBool("Caminando", false);
+                }
             }
         }
 
@@ -95,6 +107,26 @@ public class Enemigo : MonoBehaviour
         if (distancia <= rangoAtaque)
         {
             IntentarAtacar();
+        }
+    }
+
+    // si el enemigo esta parado ENCIMA del jugador (cayo arriba de su cabeza y no se mueve),
+    // lo empujamos hacia el costado para que resbale y no se quede ahi pegado
+    void OnCollisionStay2D(Collision2D colision)
+    {
+        if (colision.gameObject.GetComponent<Jugador>() == null) return;
+
+        foreach (ContactPoint2D contacto in colision.contacts)
+        {
+            // normal.y < -0.5: el enemigo esta apoyado desde ARRIBA sobre el jugador
+            // (mismo criterio que usamos en el Trampolin y la PlataformaRompible)
+            if (contacto.normal.y < -0.5f)
+            {
+                float lado = transform.position.x >= colision.transform.position.x ? 1f : -1f;
+                rb.linearVelocity = new Vector2(lado * velocidadResbalar, rb.linearVelocity.y);
+                tiempoFinResbalar = Time.time + duracionResbalar;
+                return;
+            }
         }
     }
 

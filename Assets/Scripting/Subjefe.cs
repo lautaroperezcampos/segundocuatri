@@ -51,6 +51,13 @@ public class Subjefe : MonoBehaviour
     [Header("Al morir")]
     public float tiempoAntesDeDesaparecer = 2f; // le da tiempo a que se vea la animacion de muerte
 
+    [Header("Tiempo de gracia al aparecer")]
+    public float tiempoInactivoAlAparecer = 1.5f; // no ataca ni persigue durante estos segundos al spawnear
+    private float tiempoSpawn;
+
+    [Header("Orientacion del sprite")]
+    public bool spriteMiraALaIzquierda = false; // tildalo SOLO si el sprite original mira hacia la izquierda (si no, hace moonwalk)
+
     [Header("Referencias")]
     public GameObject modeloVisual; // el sprite/hijo separado, para escalarlo sin tocar el collider
 
@@ -64,6 +71,7 @@ public class Subjefe : MonoBehaviour
 
     protected virtual void Start()
     {
+        tiempoSpawn = Time.time;
         vidaActual = vidaMaxima;
         rb = GetComponent<Rigidbody2D>();
         colisionadorPropio = GetComponent<Collider2D>();
@@ -104,7 +112,9 @@ public class Subjefe : MonoBehaviour
 
         if (spriteRenderer != null)
         {
-            spriteRenderer.flipX = direccion > 0;
+            // si el sprite original mira a la izquierda, hay que voltearlo al ir a la derecha
+            // (y viceversa) - asi cada prefab se configura segun como dibujaste su sprite
+            spriteRenderer.flipX = spriteMiraALaIzquierda ? direccion > 0 : direccion < 0;
         }
     }
 
@@ -208,7 +218,7 @@ public class Subjefe : MonoBehaviour
 
         if (jugador == null) return;
 
-        if (!estaPoseido && persigueAlJugador)
+        if (!estaPoseido && persigueAlJugador && EstaListoParaActuar())
         {
             ManejarPersecucion();
             IntentarAtacarAlJugador();
@@ -237,6 +247,13 @@ public class Subjefe : MonoBehaviour
                 + " | umbral=" + (vidaMaxima * porcentajeVidaParaPoseer)
                 + " | vidaBaja=" + vidaBaja + " | enRango=" + enRango + " | esPoseible=" + esPoseible);
         }
+    }
+
+    // true cuando ya paso el tiempo de gracia desde que aparecio - lo usan tanto
+    // la persecucion/ataque normal como el disparo automatico del SubjefeDisparador
+    protected bool EstaListoParaActuar()
+    {
+        return Time.time >= tiempoSpawn + tiempoInactivoAlAparecer;
     }
 
     void ManejarPersecucion()

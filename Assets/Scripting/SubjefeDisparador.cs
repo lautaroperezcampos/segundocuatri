@@ -30,7 +30,7 @@ public class SubjefeDisparador : Subjefe
         base.Update(); // mantiene toda la logica original: suelo, deteccion de posesion, etc
 
         // solo dispara si no esta poseido Y sigue vivo
-        if (!estaPoseido && !estaMuerto)
+        if (!estaPoseido && !estaMuerto && EstaListoParaActuar())
         {
             IntentarDispararAlJugador();
         }
