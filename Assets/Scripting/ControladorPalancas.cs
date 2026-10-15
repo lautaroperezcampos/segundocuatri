@@ -9,12 +9,14 @@ public class ControladorPalancas : MonoBehaviour
     public GameObject prefabSubjefeGolpeador;
     public Transform[] puntosSpawnGolpeadores;
 
-    [Header("Palanca 4: aparecen Subjefes disparadores, y se abre la puerta")]
+    [Header("Palanca 4: aparecen Subjefes disparadores")]
     public GameObject prefabSubjefeDisparador;
     public Transform[] puntosSpawnDisparadores;
+
+    [Header("Puerta final: se abre solo cuando se activaron las 4 palancas (en cualquier orden)")]
     public PuertaInteractiva puertaFinal;
 
-    private int palancasActivadas = 0;
+    private bool[] palancaActivada = new bool[5]; // indices 1 a 4; el 0 no se usa
 
     void Start()
     {
@@ -27,8 +29,11 @@ public class ControladorPalancas : MonoBehaviour
     // llamado por cada Palanca, pasando su propio numero (1, 2, 3 o 4)
     public void NotificarPalancaActivada(int numeroPalanca)
     {
-        palancasActivadas++;
-        Debug.Log("Palanca " + numeroPalanca + " activada (" + palancasActivadas + "/4)");
+        if (numeroPalanca < 1 || numeroPalanca > 4) return;
+        if (palancaActivada[numeroPalanca]) return; // esa palanca ya se uso
+
+        palancaActivada[numeroPalanca] = true;
+        Debug.Log("Palanca " + numeroPalanca + " activada (" + ContarActivadas() + "/4)");
 
         switch (numeroPalanca)
         {
@@ -49,13 +54,24 @@ public class ControladorPalancas : MonoBehaviour
 
             case 4:
                 SpawnearEnPuntos(prefabSubjefeDisparador, puntosSpawnDisparadores);
-
-                if (puertaFinal != null)
-                {
-                    puertaFinal.Desbloquear();
-                }
                 break;
         }
+
+        // la puerta final se abre recien cuando estan las 4, sin importar el orden
+        if (ContarActivadas() >= 4 && puertaFinal != null)
+        {
+            puertaFinal.Desbloquear();
+        }
+    }
+
+    int ContarActivadas()
+    {
+        int total = 0;
+        for (int i = 1; i <= 4; i++)
+        {
+            if (palancaActivada[i]) total++;
+        }
+        return total;
     }
 
     void SpawnearEnPuntos(GameObject prefab, Transform[] puntos)

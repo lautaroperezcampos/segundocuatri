@@ -52,9 +52,16 @@ MonoBehaviour:
   velocidad: 8
   persigueAlJugador: 1
   rangoPersecucion: 8
-  "da\xF1oContraJugador": 10
+  "da\xF1oContraJugador": 12
   rangoAtaqueJugador: 1.2
   cooldownAtaqueJugador: 1.5
+  saltarAlPerseguir: 1
+  alturaMinimaParaSaltar: 1.2
+  alturaMaximaParaSaltar: 3
+  margenHorizontalParaSaltar: 3
+  cooldownSaltoPersecucion: 1.5
+  velocidadResbalar: 4
+  duracionResbalar: 0.4
   fuerzaSalto: 23
   distanciaChequeoSuelo: 1.8
   capaSuelo:
@@ -67,12 +74,14 @@ MonoBehaviour:
   estaMuerto: 0
   "da\xF1oAtaque": 20
   rangoAtaque: 1.5
-  spriteGolpe: {fileID: 0}
+  spriteGolpe: {fileID: 8913520444332198068, guid: 36fea30a0d088f847aad431dc7131e27, type: 3}
   colorGolpe: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   "tama\xF1oGolpe": 0.4
   distanciaGolpe: 1
   duracionGolpe: 0.12
   tiempoAntesDeDesaparecer: 2
+  tiempoInactivoAlAparecer: 1.5
+  spriteMiraALaIzquierda: 0
   modeloVisual: {fileID: 5970334935437570198}
 --- !u!61 &1624130581369797925
 BoxCollider2D:

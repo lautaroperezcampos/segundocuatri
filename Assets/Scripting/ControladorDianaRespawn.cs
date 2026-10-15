@@ -10,7 +10,20 @@ public class ControladorDianaConRespawn : MonoBehaviour
     public Transform puntoRespawn;
 
     [Header("Puerta a abrir cuando le pegan a la Diana")]
-    public PuertaInteractiva puerta;
+    public PuertaInteractiva puerta; // opcional: puerta que aparece y se entra con el boton Y
+
+    [Header("Puerta que DESAPARECE (opcional): bloquea el paso hasta que le pegan a la Diana")]
+    public GameObject puertaQueDesaparece; // el objeto con el sprite y el collider solido que bloquea
+    public GameObject salidaDeEscena; // opcional: el objeto con PuertaEscena (trigger al borde). Arranca apagado y se enciende al abrir
+
+    void Start()
+    {
+        // la salida del borde arranca apagada: solo se puede usar cuando la puerta desaparece
+        if (salidaDeEscena != null)
+        {
+            salidaDeEscena.SetActive(false);
+        }
+    }
 
     void Update()
     {
@@ -38,6 +51,16 @@ public class ControladorDianaConRespawn : MonoBehaviour
         if (puerta != null)
         {
             puerta.Desbloquear();
+        }
+
+        if (puertaQueDesaparece != null)
+        {
+            puertaQueDesaparece.SetActive(false);
+        }
+
+        if (salidaDeEscena != null)
+        {
+            salidaDeEscena.SetActive(true);
         }
     }
 }

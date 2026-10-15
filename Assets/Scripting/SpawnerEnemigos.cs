@@ -19,6 +19,13 @@ public class SpawnerEnemigos : MonoBehaviour
     public float profundidadInicial = 1.5f; // cuanto empieza hundido bajo tierra
     public float duracionEmerger = 0.4f; // cuanto tarda en subir
 
+    [Header("Portal (opcional: si lo dejas vacio, emergen de la tierra como antes)")]
+    public GameObject prefabPortal; // arrastra el prefab/sprite del portal
+    public float alturaPortal = 1f; // que tan arriba del suelo aparece el portal (ajusta segun el alto del enemigo)
+    public float duracionAbrirPortal = 0.35f; // cuanto tarda en abrirse
+    public float duracionSalidaEnemigo = 0.35f; // cuanto tarda el enemigo en salir
+    public float duracionCerrarPortal = 0.3f; // cuanto tarda en cerrarse
+
     [Header("Distancia minima al Jugador")]
     public float distanciaMinimaJugador = 4f; // no spawnea mas cerca del jugador que esto
     public int intentosMaximos = 10; // cuantas posiciones distintas prueba antes de rendirse
@@ -153,11 +160,84 @@ public class SpawnerEnemigos : MonoBehaviour
             scriptEnemigo.spawner = this;
         }
 
-        StartCoroutine(EmergerDeLaTierra(nuevoEnemigo, posicionFinal));
+        if (prefabPortal != null)
+        {
+            StartCoroutine(SalirDelPortal(nuevoEnemigo, posicionFinal + Vector3.up * alturaPortal));
+        }
+        else
+        {
+            StartCoroutine(EmergerDeLaTierra(nuevoEnemigo, posicionFinal));
+        }
+    }
+
+    // el portal se abre, el enemigo sale creciendo desde el centro y despues el portal se cierra
+    IEnumerator SalirDelPortal(GameObject enemigo, Vector3 posicionPortal)
+    {
+        Rigidbody2D rb = enemigo.GetComponent<Rigidbody2D>();
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+            rb.bodyType = RigidbodyType2D.Kinematic;
+        }
+
+        enemigo.transform.position = posicionPortal;
+
+        Vector3 escalaEnemigo = enemigo.transform.localScale;
+        enemigo.transform.localScale = Vector3.zero;
+
+        GameObject portal = Instantiate(prefabPortal, posicionPortal, Quaternion.identity);
+        Vector3 escalaPortal = portal.transform.localScale;
+        portal.transform.localScale = Vector3.zero;
+
+        // 1) se abre el portal
+        float t = 0f;
+        while (t < duracionAbrirPortal)
+        {
+            t += Time.deltaTime;
+            portal.transform.localScale = escalaPortal * Mathf.Clamp01(t / duracionAbrirPortal);
+            yield return null;
+        }
+        portal.transform.localScale = escalaPortal;
+
+        // 2) el enemigo sale (si ya murio mientras tanto, seguimos igual)
+        t = 0f;
+        while (t < duracionSalidaEnemigo)
+        {
+            t += Time.deltaTime;
+            if (enemigo != null)
+            {
+                enemigo.transform.localScale = escalaEnemigo * Mathf.Clamp01(t / duracionSalidaEnemigo);
+            }
+            yield return null;
+        }
+
+        if (enemigo != null)
+        {
+            enemigo.transform.localScale = escalaEnemigo;
+
+            if (rb != null)
+            {
+                rb.bodyType = RigidbodyType2D.Dynamic;
+            }
+        }
+
+        // 3) se cierra el portal
+        t = 0f;
+        while (t < duracionCerrarPortal)
+        {
+            t += Time.deltaTime;
+            portal.transform.localScale = escalaPortal * (1f - Mathf.Clamp01(t / duracionCerrarPortal));
+            yield return null;
+        }
+
+        Destroy(portal);
     }
 
     IEnumerator EmergerDeLaTierra(GameObject enemigo, Vector3 posicionFinal)
     {
+        if (enemigo == null) yield break;
+
         Rigidbody2D rb = enemigo.GetComponent<Rigidbody2D>();
 
         // durante la animacion, apagamos la fisica para que no pelee con el movimiento manual
@@ -173,11 +253,16 @@ public class SpawnerEnemigos : MonoBehaviour
 
         while (tiempoTranscurrido < duracionEmerger)
         {
+            // si lo mataron mientras emergia, cortamos sin error
+            if (enemigo == null) yield break;
+
             tiempoTranscurrido += Time.deltaTime;
             float progreso = tiempoTranscurrido / duracionEmerger;
             enemigo.transform.position = Vector3.Lerp(posicionInicial, posicionFinal, progreso);
             yield return null;
         }
+
+        if (enemigo == null) yield break;
 
         enemigo.transform.position = posicionFinal;
 

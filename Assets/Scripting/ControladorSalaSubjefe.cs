@@ -90,6 +90,9 @@ public class ControladorSalaSubjefe : MonoBehaviour
 
     void RevisarEnemigosMuertos()
     {
+        // todavia faltan minios por salir del spawner: la oleada no termino
+        if (spawnerEnemigos != null && !spawnerEnemigos.OleadaTerminada()) return;
+
         Enemigo[] enemigosVivos = FindObjectsByType<Enemigo>(FindObjectsSortMode.None);
         if (enemigosVivos.Length == 0)
         {

@@ -35,6 +35,15 @@ public class Enemigo : MonoBehaviour
     private Collider2D plataformaActual;
     private bool bajandoPlataforma = false;
 
+    [Header("Saltar a plataformas persiguiendo (cuando el jugador esta arriba)")]
+    public bool saltarAlPerseguir = true;
+    public float fuerzaSaltoPersecucion = 9f;
+    public float alturaMinimaParaSaltar = 1.2f; // el jugador tiene que estar al menos esto mas arriba
+    public float alturaMaximaParaSaltar = 4f; // si esta mas arriba que esto, no intenta (no llegaria)
+    public float margenHorizontalParaSaltar = 3f; // que tan cerca en X del jugador para decidir saltar
+    public float cooldownSaltoPersecucion = 1.5f;
+    private float tiempoUltimoSalto = -999f;
+
     [Header("Resbalar si cae arriba del jugador")]
     public float velocidadResbalar = 4f; // que tan fuerte se desliza hacia el costado
     public float duracionResbalar = 0.4f; // cuanto tiempo deja de perseguir mientras resbala
@@ -58,6 +67,13 @@ public class Enemigo : MonoBehaviour
         vidaActual = vidaMaxima;
         rb = GetComponent<Rigidbody2D>();
         colisionadorPropio = GetComponent<Collider2D>();
+
+        // evita que el enemigo se de vuelta (rote) al chocar o caer arriba de algo
+        if (rb != null)
+        {
+            rb.freezeRotation = true;
+            rb.rotation = 0f;
+        }
 
         GameObject fuenteVisual = modeloVisual != null ? modeloVisual : gameObject;
         animator = fuenteVisual.GetComponent<Animator>();
@@ -91,6 +107,7 @@ public class Enemigo : MonoBehaviour
             {
                 Perseguir();
                 ConsiderarBajarPlataforma();
+                ConsiderarSaltarPlataforma();
             }
             else
             {
@@ -110,23 +127,60 @@ public class Enemigo : MonoBehaviour
         }
     }
 
+    // true si el centro de este enemigo esta mas arriba que el del otro collider (no depende del signo de la normal)
+    bool EstaArribaDe(Collider2D otro)
+    {
+        float miY = colisionadorPropio != null ? colisionadorPropio.bounds.center.y : transform.position.y;
+        return otro != null && miY > otro.bounds.center.y;
+    }
+
     // si el enemigo esta parado ENCIMA del jugador (cayo arriba de su cabeza y no se mueve),
     // lo empujamos hacia el costado para que resbale y no se quede ahi pegado
     void OnCollisionStay2D(Collision2D colision)
     {
-        if (colision.gameObject.GetComponent<Jugador>() == null) return;
+        GameObject otro = colision.gameObject;
+        bool esJugador = otro.GetComponent<Jugador>() != null;
+        bool esEnemigo = otro.GetComponentInParent<Enemigo>() != null || otro.GetComponentInParent<Subjefe>() != null;
+        if (!esJugador && !esEnemigo) return;
 
         foreach (ContactPoint2D contacto in colision.contacts)
         {
+            // lado a lado con otro enemigo/subjefe: los separamos para que no se superpongan
+            if (esEnemigo && Mathf.Abs(contacto.normal.x) > 0.5f)
+            {
+                float ladoSep = transform.position.x >= colision.transform.position.x ? 1f : -1f;
+                rb.position += new Vector2(ladoSep * 2f * Time.fixedDeltaTime, 0f);
+                return;
+            }
+
             // normal.y < -0.5: el enemigo esta apoyado desde ARRIBA sobre el jugador
             // (mismo criterio que usamos en el Trampolin y la PlataformaRompible)
-            if (contacto.normal.y < -0.5f)
+            if (Mathf.Abs(contacto.normal.y) > 0.5f && EstaArribaDe(colision.collider))
             {
                 float lado = transform.position.x >= colision.transform.position.x ? 1f : -1f;
                 rb.linearVelocity = new Vector2(lado * velocidadResbalar, rb.linearVelocity.y);
                 tiempoFinResbalar = Time.time + duracionResbalar;
                 return;
             }
+        }
+    }
+
+    // si el jugador esta arriba (en otra plataforma) y bastante cerca en X, salta para buscarlo
+    void ConsiderarSaltarPlataforma()
+    {
+        if (!saltarAlPerseguir) return;
+        if (bajandoPlataforma) return;
+        if (plataformaActual == null) return; // solo salta si esta apoyado en el suelo
+        if (Time.time < tiempoUltimoSalto + cooldownSaltoPersecucion) return;
+
+        float alturaRelativa = jugador.position.y - transform.position.y;
+        bool jugadorArriba = alturaRelativa >= alturaMinimaParaSaltar && alturaRelativa <= alturaMaximaParaSaltar;
+        bool cercaEnX = Mathf.Abs(jugador.position.x - transform.position.x) <= margenHorizontalParaSaltar;
+
+        if (jugadorArriba && cercaEnX)
+        {
+            tiempoUltimoSalto = Time.time;
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, fuerzaSaltoPersecucion);
         }
     }
 
@@ -146,7 +200,7 @@ public class Enemigo : MonoBehaviour
     {
         if (bajandoPlataforma) return;
         if (plataformaActual == null) return;
-        if (plataformaActual.GetComponent<PlataformaNoAtravesable>() != null) return;
+        if (plataformaActual.GetComponentInParent<PlatformEffector2D>() == null) return;
 
         bool jugadorMuchoMasAbajo = (transform.position.y - jugador.position.y) >= diferenciaAlturaParaBajar;
         bool alineadoHorizontal = Mathf.Abs(jugador.position.x - transform.position.x) <= margenHorizontalParaBajar;

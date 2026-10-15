@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 // Poné este script en un GameObject con Collider2D marcado "Is Trigger",
 // en la plataforma/zona donde quieras esta secuencia.
@@ -11,7 +12,7 @@ public class ControladorOleadaSubjefes : MonoBehaviour
     public GameObject[] prefabsSubjefes; // los 2 prefabs (pueden repetirse el mismo)
     public Transform[] puntosSpawnSubjefes; // 2 posiciones, una por cada Subjefe
 
-    [Header("Reposicion (opcional): si desaparece el SubjefeDisparador, aparece otro")]
+    [Header("Reposicion (opcional): si mueren todos los subjefes de ESTE controlador, aparece otro")]
     public bool reponerDisparador = false; // dejalo destildado si no lo necesitas (todo funciona como antes)
     public Jugador jugador; // para saber si lo estas poseyendo
     public GameObject prefabRepuesto; // el prefab del SubjefeDisparador que se repone
@@ -22,8 +23,17 @@ public class ControladorOleadaSubjefes : MonoBehaviour
     private bool subjefesYaSpawnados = false;
     private float tiempoSinDisparador = -1f;
 
+    // DIAGNOSTICO TEMPORAL: si esto no aparece apenas das Play, el componente no esta en la escena o esta apagado
+    void Start()
+    {
+        Debug.Log("[OleadaSubjefes '" + name + "'] ARRANCO. Collider2D=" + (GetComponent<Collider2D>() != null)
+            + " isTrigger=" + (GetComponent<Collider2D>() != null && GetComponent<Collider2D>().isTrigger));
+    }
+
     void OnTriggerEnter2D(Collider2D otro)
     {
+        Debug.Log("[OleadaSubjefes '" + name + "'] entro algo al trigger: " + otro.name);
+
         if (activado) return;
 
         // se activa si entra el Jugador, O un Subjefe que el jugador este poseyendo
@@ -42,8 +52,27 @@ public class ControladorOleadaSubjefes : MonoBehaviour
         }
     }
 
+    private float proximoLogDiagnostico = 0f;
+
+    // SOLO los subjefes que creo ESTE controlador (los 2 iniciales y sus repuestos).
+    // Asi varios controladores en el mapa no se pisan entre si.
+    private List<Subjefe> misSubjefes = new List<Subjefe>();
+
     void Update()
     {
+        // DIAGNOSTICO TEMPORAL: una vez por segundo dice en que estado esta este controlador
+        if (Time.time >= proximoLogDiagnostico)
+        {
+            proximoLogDiagnostico = Time.time + 1f;
+            Debug.Log("[OleadaSubjefes '" + name + "'] activado=" + activado
+                + " subjefesYaSpawnados=" + subjefesYaSpawnados
+                + " reponerDisparador=" + reponerDisparador
+                + " jugadorAsignado=" + (jugador != null)
+                + " poseyendo=" + (jugador != null && jugador.estaPoseyendo)
+                + " prefabRepuesto=" + (prefabRepuesto != null)
+                + " puntoRepuesto=" + (puntoRepuesto != null));
+        }
+
         if (!activado) return;
 
         // ya aparecieron los subjefes: lo unico que queda por hacer es reponer si hace falta
@@ -74,8 +103,9 @@ public class ControladorOleadaSubjefes : MonoBehaviour
         }
     }
 
-    // si no hay ningun SubjefeDisparador VIVO en la escena y no estas poseyendo uno
-    // (lo mataron, o lo poseiste y lo soltaste), espera un ratito y repone otro
+    // si NINGUNO de los subjefes de ESTE controlador sigue vivo y no estas poseyendo uno
+    // (los mataron, o lo poseiste y lo soltaste), espera un ratito y repone otro.
+    // Los subjefes de otros controladores o puestos a mano no cuentan.
     void AsegurarDisparador()
     {
         if (jugador != null && jugador.estaPoseyendo)
@@ -84,10 +114,11 @@ public class ControladorOleadaSubjefes : MonoBehaviour
             return;
         }
 
-        // contamos solo los vivos: uno muerto queda unos segundos en escena por la animacion
-        SubjefeDisparador[] todos = FindObjectsByType<SubjefeDisparador>(FindObjectsSortMode.None);
+        // sacamos de la lista los que ya fueron destruidos
+        misSubjefes.RemoveAll(x => x == null);
 
-        foreach (SubjefeDisparador s in todos)
+        // contamos solo los vivos: uno muerto queda unos segundos en escena por la animacion
+        foreach (Subjefe s in misSubjefes)
         {
             if (!s.estaMuerto)
             {
@@ -105,7 +136,15 @@ public class ControladorOleadaSubjefes : MonoBehaviour
         {
             if (prefabRepuesto != null && puntoRepuesto != null)
             {
-                Instantiate(prefabRepuesto, puntoRepuesto.position, Quaternion.identity);
+                GameObject repuesto = Instantiate(prefabRepuesto, puntoRepuesto.position, Quaternion.identity);
+                Subjefe scriptRepuesto = repuesto.GetComponent<Subjefe>();
+                if (scriptRepuesto != null) misSubjefes.Add(scriptRepuesto);
+
+                Debug.Log("[OleadaSubjefes '" + name + "'] REPONIENDO '" + repuesto.name + "' en " + puntoRepuesto.position);
+            }
+            else
+            {
+                Debug.LogWarning("ControladorOleadaSubjefes: falta asignar Prefab Repuesto o Punto Repuesto en '" + name + "', no puede reponer el Subjefe");
             }
 
             tiempoSinDisparador = -1f;
@@ -126,7 +165,9 @@ public class ControladorOleadaSubjefes : MonoBehaviour
 
         for (int i = 0; i < cantidad; i++)
         {
-            Instantiate(prefabsSubjefes[i], puntosSpawnSubjefes[i].position, Quaternion.identity);
+            GameObject nuevo = Instantiate(prefabsSubjefes[i], puntosSpawnSubjefes[i].position, Quaternion.identity);
+            Subjefe scriptSubjefe = nuevo.GetComponent<Subjefe>();
+            if (scriptSubjefe != null) misSubjefes.Add(scriptSubjefe);
         }
     }
 }

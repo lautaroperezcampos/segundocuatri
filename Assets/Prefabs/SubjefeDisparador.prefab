@@ -55,7 +55,9 @@ MonoBehaviour:
   "da\xF1oContraJugador": 15
   rangoAtaqueJugador: 10
   cooldownAtaqueJugador: 1.5
-  fuerzaSalto: 25
+  velocidadResbalar: 4
+  duracionResbalar: 0.4
+  fuerzaSalto: 28
   distanciaChequeoSuelo: 1.8
   capaSuelo:
     serializedVersion: 2
@@ -73,9 +75,12 @@ MonoBehaviour:
   distanciaGolpe: 1
   duracionGolpe: 0.12
   tiempoAntesDeDesaparecer: 2
+  tiempoInactivoAlAparecer: 1.5
+  spriteMiraALaIzquierda: 0
   modeloVisual: {fileID: 4956735789695916242}
   prefabProyectil: {fileID: 141655571910794041, guid: f491ca37ea11e9a4da87c25013c03fb3, type: 3}
   cooldownDisparo: 0.8
+  cooldownDisparoPoseido: 0.2
   rangoDisparo: 30
   "da\xF1oProyectil": 15
   velocidadProyectil: 25

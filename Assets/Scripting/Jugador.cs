@@ -27,6 +27,12 @@ public class Jugador : MonoBehaviour
     public LayerMask capaSuelo; // elegi que layer cuenta como "suelo" en el Inspector
     private bool enSuelo = false;
 
+    [Header("Resbalar si cae arriba de un enemigo")]
+    public float velocidadResbalar = 5f; // que tan fuerte se desliza hacia el costado
+    public float duracionResbalar = 0.3f; // cuanto tiempo pierde el control mientras resbala
+    private float tiempoFinResbalar = 0f;
+    private float direccionResbalar = 0f;
+
     [Header("Bajar de plataformas (abajo + salto)")]
     public float tiempoIgnorarPlataforma = 0.4f; // cuanto tiempo se atraviesa antes de volver a ser solida
     private Collider2D plataformaActual; // la que esta pisando ahora mismo, si la hay
@@ -93,6 +99,10 @@ public class Jugador : MonoBehaviour
 
         if (estaMuerto) return; // muerto: ignoramos todos los controles
 
+        // juego en pausa (timeScale = 0): ignoramos salto, ataque y posesion, para que
+        // apretar A en el menu de pausa no haga saltar al personaje
+        if (Time.timeScale == 0f) return;
+
         ChequearCaidaAlVacio();
         RegenerarVida();
         ChequearSuelo();
@@ -148,6 +158,30 @@ public class Jugador : MonoBehaviour
             tiempoUltimaRegeneracion = Time.time;
             vidaActual++;
             vidaActual = Mathf.Min(vidaActual, vidaMaxima);
+        }
+    }
+
+    // si el jugador cae ARRIBA de un enemigo o subjefe, lo empujamos al costado
+    // para que resbale y no se quede parado encima de su cabeza
+    void OnCollisionStay2D(Collision2D colision)
+    {
+        if (estaPoseyendo || estaMuerto) return;
+
+        bool esEnemigo = colision.gameObject.GetComponentInParent<Enemigo>() != null
+                      || colision.gameObject.GetComponentInParent<Subjefe>() != null;
+        if (!esEnemigo) return;
+
+        foreach (ContactPoint2D contacto in colision.contacts)
+        {
+            // normal.y < -0.5: el jugador esta apoyado desde ARRIBA sobre el enemigo (mismo criterio que Enemigo/Subjefe)
+            float miY = colisionador != null ? colisionador.bounds.center.y : transform.position.y;
+            if (Mathf.Abs(contacto.normal.y) > 0.5f && miY > colision.collider.bounds.center.y)
+            {
+                float lado = transform.position.x >= colision.transform.position.x ? 1f : -1f;
+                direccionResbalar = lado;
+                tiempoFinResbalar = Time.time + duracionResbalar;
+                return;
+            }
         }
     }
 
@@ -315,6 +349,13 @@ public class Jugador : MonoBehaviour
 
     void MoverJugador()
     {
+        // resbalando de arriba de un enemigo: sin control un instante, empujado hacia el costado
+        if (Time.time < tiempoFinResbalar)
+        {
+            rb.linearVelocity = new Vector2(direccionResbalar * velocidadResbalar, rb.linearVelocity.y);
+            return;
+        }
+
         float horizontal = Input.GetAxisRaw("Horizontal");
         rb.linearVelocity = new Vector2(horizontal * velocidad, rb.linearVelocity.y);
 
@@ -350,8 +391,8 @@ public class Jugador : MonoBehaviour
 
         float vertical = Input.GetAxisRaw("Vertical");
 
-        // si la plataforma tiene el marcador "no atravesable", nunca la dejamos atravesar
-        bool sePuedeAtravesar = plataformaActual != null && plataformaActual.GetComponent<PlataformaNoAtravesable>() == null;
+        // solo se atraviesa si la plataforma tiene Platform Effector 2D
+        bool sePuedeAtravesar = plataformaActual != null && plataformaActual.GetComponentInParent<PlatformEffector2D>() != null;
 
         if (vertical < -0.5f && plataformaActual != null && sePuedeAtravesar)
         {
@@ -383,8 +424,8 @@ public class Jugador : MonoBehaviour
         float vertical = Input.GetAxisRaw("Vertical");
         Collider2D plataformaSubjefe = subjefePoseido.ObtenerPlataformaActual();
 
-        // si la plataforma tiene el marcador "no atravesable", nunca la dejamos atravesar
-        bool sePuedeAtravesar = plataformaSubjefe != null && plataformaSubjefe.GetComponent<PlataformaNoAtravesable>() == null;
+        // solo se atraviesa si la plataforma tiene Platform Effector 2D
+        bool sePuedeAtravesar = plataformaSubjefe != null && plataformaSubjefe.GetComponentInParent<PlatformEffector2D>() != null;
 
         if (vertical < -0.5f && plataformaSubjefe != null && sePuedeAtravesar)
         {
@@ -668,6 +709,20 @@ public class Jugador : MonoBehaviour
         {
             Morir();
         }
+    }
+
+    // muerte instantanea (columnas, trampas, etc): si estaba poseyendo, suelta al subjefe y muere el personaje
+    public void MatarInstantaneo()
+    {
+        if (estaMuerto) return;
+
+        if (estaPoseyendo)
+        {
+            DejarDePoseer();
+        }
+
+        vidaActual = 0;
+        Morir();
     }
 
     void Morir()

@@ -269,6 +269,8 @@ MonoBehaviour:
   margenHorizontalParaBajar: 1.5
   diferenciaAlturaParaBajar: 1.5
   tiempoIgnorarPlataforma: 0.4
+  velocidadResbalar: 8
+  duracionResbalar: 0.4
   modeloVisual: {fileID: 5702379252478876238}
   spawner: {fileID: 0}
 --- !u!95 &2585447385570898914

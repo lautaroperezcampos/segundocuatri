@@ -20,11 +20,24 @@ public class Subjefe : MonoBehaviour
     public float cooldownAtaqueJugador = 1.5f;
     private float tiempoUltimoAtaqueJugador = -999f;
 
+    [Header("Saltar a plataformas persiguiendo (cuando NO esta poseido y el jugador esta arriba)")]
+    public bool saltarAlPerseguir = true;
+    public float alturaMinimaParaSaltar = 1.2f; // el jugador tiene que estar al menos esto mas arriba
+    public float alturaMaximaParaSaltar = 3f; // si esta mas arriba que esto, no intenta (no llegaria)
+    public float margenHorizontalParaSaltar = 3f; // que tan cerca en X del jugador para decidir saltar
+    public float cooldownSaltoPersecucion = 1.5f;
+    private float tiempoUltimoSaltoPersecucion = -999f;
+
+    [Header("Resbalar si cae arriba del jugador (cuando NO esta poseido)")]
+    public float velocidadResbalar = 4f; // que tan fuerte se desliza hacia el costado
+    public float duracionResbalar = 0.4f; // cuanto tiempo deja de perseguir mientras resbala
+    private float tiempoFinResbalar = 0f;
+
     [Header("Salto")]
     public float fuerzaSalto = 8f;
     public float distanciaChequeoSuelo = 0.6f; // ajustar segun el alto del sprite
     public LayerMask capaSuelo; // elegi que layer cuenta como "suelo" en el Inspector
-    private bool enSuelo = false;
+    protected bool enSuelo = false;
     private Collider2D plataformaActual; // la que esta pisando ahora mismo, si la hay
 
     [Header("Posesion")]
@@ -76,11 +89,22 @@ public class Subjefe : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         colisionadorPropio = GetComponent<Collider2D>();
 
+        // evita que el subjefe se de vuelta (rote) al chocar o caer arriba de algo
+        if (rb != null)
+        {
+            rb.freezeRotation = true;
+            rb.rotation = 0f;
+        }
+
         // el Animator/SpriteRenderer pueden estar en el mismo objeto, o en el hijo "modeloVisual"
         GameObject fuenteVisual = modeloVisual != null ? modeloVisual : gameObject;
         animator = fuenteVisual.GetComponent<Animator>();
         spriteRenderer = fuenteVisual.GetComponent<SpriteRenderer>();
         efectoFlash = fuenteVisual.GetComponent<EfectoFlashDaño>();
+
+        // sincroniza el espejado del sprite con la direccion inicial (antes quedaba como lo dibujaste
+        // hasta el primer movimiento, y el golpe/ataque ya contaba la direccion como "derecha")
+        ActualizarDireccion(direccion);
 
         // buscamos al jugador por su tag (asegurate de que el jugador tenga el tag "Player")
         GameObject jugadorObj = GameObject.FindGameObjectWithTag("Player");
@@ -91,7 +115,7 @@ public class Subjefe : MonoBehaviour
         }
     }
 
-    public void Mover(float horizontal)
+    public virtual void Mover(float horizontal)
     {
         rb.linearVelocity = new Vector2(horizontal * velocidad, rb.linearVelocity.y);
 
@@ -114,7 +138,12 @@ public class Subjefe : MonoBehaviour
         {
             // si el sprite original mira a la izquierda, hay que voltearlo al ir a la derecha
             // (y viceversa) - asi cada prefab se configura segun como dibujaste su sprite
-            spriteRenderer.flipX = spriteMiraALaIzquierda ? direccion > 0 : direccion < 0;
+            bool voltear = spriteMiraALaIzquierda ? direccion > 0 : direccion < 0;
+
+            // si el prefab (o un padre) tiene escala X negativa, el espejado ya viene invertido: lo compensamos
+            if (spriteRenderer.transform.lossyScale.x < 0f) voltear = !voltear;
+
+            spriteRenderer.flipX = voltear;
         }
     }
 
@@ -189,7 +218,8 @@ public class Subjefe : MonoBehaviour
     {
         GameObject golpe = new GameObject("GolpeVisualSubjefe");
         golpe.transform.SetParent(transform);
-        golpe.transform.localPosition = new Vector3(direccion * distanciaGolpe, 0, 0);
+        // posicion en el MUNDO (no local): asi sale siempre hacia donde camina, aunque el prefab tenga escala negativa
+        golpe.transform.position = transform.position + new Vector3(direccion * distanciaGolpe, 0, 0);
         golpe.transform.localScale = Vector3.one * tamañoGolpe;
 
         SpriteRenderer sr = golpe.AddComponent<SpriteRenderer>();
@@ -198,6 +228,25 @@ public class Subjefe : MonoBehaviour
         sr.sortingOrder = 10;
 
         Destroy(golpe, duracionGolpe);
+    }
+
+    // seguro extra: aunque una animacion, la fisica o el prefab intenten girar al subjefe,
+    // lo dejamos siempre derecho (rotacion 0) en cada frame
+    protected virtual void LateUpdate()
+    {
+        if (estaMuerto) return;
+
+        transform.rotation = Quaternion.identity;
+
+        if (modeloVisual != null)
+        {
+            modeloVisual.transform.localRotation = Quaternion.identity;
+        }
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.flipY = false;
+        }
     }
 
     protected virtual void Update()
@@ -256,8 +305,72 @@ public class Subjefe : MonoBehaviour
         return Time.time >= tiempoSpawn + tiempoInactivoAlAparecer;
     }
 
+    // true si el centro de este subjefe esta mas arriba que el del otro collider (no depende del signo de la normal)
+    bool EstaArribaDe(Collider2D otro)
+    {
+        float miY = colisionadorPropio != null ? colisionadorPropio.bounds.center.y : transform.position.y;
+        return otro != null && miY > otro.bounds.center.y;
+    }
+
+    // si el subjefe esta parado ENCIMA del jugador (cayo arriba de su cabeza), lo empujamos
+    // hacia el costado para que resbale y no se quede pegado ahi
+    void OnCollisionStay2D(Collision2D colision)
+    {
+        if (estaPoseido || estaMuerto || rb == null) return;
+        // vale para el jugador, otros subjefes y minions (si caes arriba de un golpeador, resbalas)
+        GameObject otro = colision.gameObject;
+        if (otro.GetComponent<Jugador>() == null
+            && otro.GetComponentInParent<Subjefe>() == null
+            && otro.GetComponentInParent<Enemigo>() == null) return;
+
+        bool esJugadorOtro = otro.GetComponent<Jugador>() != null;
+
+        foreach (ContactPoint2D contacto in colision.contacts)
+        {
+            // lado a lado con otro enemigo/subjefe: los separamos para que no se superpongan
+            if (!esJugadorOtro && Mathf.Abs(contacto.normal.x) > 0.5f)
+            {
+                float ladoSep = transform.position.x >= colision.transform.position.x ? 1f : -1f;
+                rb.position += new Vector2(ladoSep * 2f * Time.fixedDeltaTime, 0f);
+                return;
+            }
+
+            // normal.y < -0.5: el subjefe esta apoyado desde ARRIBA sobre el jugador
+            if (Mathf.Abs(contacto.normal.y) > 0.5f && EstaArribaDe(colision.collider))
+            {
+                float lado = transform.position.x >= colision.transform.position.x ? 1f : -1f;
+                rb.linearVelocity = new Vector2(lado * velocidadResbalar, rb.linearVelocity.y);
+                tiempoFinResbalar = Time.time + duracionResbalar;
+                return;
+            }
+        }
+    }
+
+    // si el jugador esta arriba (en otra plataforma) y bastante cerca en X, salta para buscarlo.
+    // usa Saltar(), asi el SubjefeVolador aletea en vez de saltar
+    void ConsiderarSaltarHaciaJugador()
+    {
+        if (!saltarAlPerseguir) return;
+        if (Time.time < tiempoUltimoSaltoPersecucion + cooldownSaltoPersecucion) return;
+
+        float alturaRelativa = jugador.position.y - transform.position.y;
+        bool jugadorArriba = alturaRelativa >= alturaMinimaParaSaltar && alturaRelativa <= alturaMaximaParaSaltar;
+        bool cercaEnX = Mathf.Abs(jugador.position.x - transform.position.x) <= margenHorizontalParaSaltar;
+
+        if (jugadorArriba && cercaEnX)
+        {
+            tiempoUltimoSaltoPersecucion = Time.time;
+            Saltar();
+        }
+    }
+
     void ManejarPersecucion()
     {
+        // mientras resbala, no lo dejamos perseguir ni frenar
+        if (Time.time < tiempoFinResbalar) return;
+
+        ConsiderarSaltarHaciaJugador();
+
         float distancia = ObtenerDistanciaAlJugador();
 
         if (distancia <= rangoPersecucion && distancia > rangoAtaqueJugador)
@@ -303,7 +416,7 @@ public class Subjefe : MonoBehaviour
         return Vector2.Distance(transform.position, jugador.position);
     }
 
-    public void RecibirDaño(int cantidad)
+    public virtual void RecibirDaño(int cantidad)
     {
         if (estaMuerto) return;
 

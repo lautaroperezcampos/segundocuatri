@@ -6,7 +6,8 @@ public class SubjefeDisparador : Subjefe
 {
     [Header("Disparo")]
     public GameObject prefabProyectil; // arrastra el prefab del Proyectil
-    public float cooldownDisparo = 2f;
+    public float cooldownDisparo = 2f; // cooldown cuando dispara solo contra el Jugador (no esta poseido)
+    public float cooldownDisparoPoseido = 0.5f; // cooldown cuando lo posees vos (mas bajo = dispara mas rapido)
     public float rangoDisparo = 8f;
     public int dañoProyectil = 15;
     public float velocidadProyectil = 10f;
@@ -75,7 +76,7 @@ public class SubjefeDisparador : Subjefe
         objetivoBloqueado = null;
 
         // si todavia esta recargando, no dispara, pero la mira ya se escondio arriba
-        if (Time.time < tiempoUltimoDisparo + cooldownDisparo) return;
+        if (Time.time < tiempoUltimoDisparo + cooldownDisparoPoseido) return;
 
         tiempoUltimoDisparo = Time.time;
 

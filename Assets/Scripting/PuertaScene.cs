@@ -13,7 +13,14 @@ public class PuertaEscena : MonoBehaviour
     void OnTriggerEnter2D(Collider2D otro)
     {
         if (yaSeActivo) return;
-        if (otro.GetComponent<Jugador>() == null) return;
+
+        // pasa el Jugador, O un Subjefe que el Jugador este poseyendo ahora mismo.
+        // Un Subjefe hostil o suelto NO la activa.
+        bool esJugador = otro.GetComponent<Jugador>() != null;
+        Subjefe subjefe = otro.GetComponent<Subjefe>();
+        bool esSubjefePoseido = subjefe != null && subjefe.estaPoseido;
+
+        if (!esJugador && !esSubjefePoseido) return;
 
         yaSeActivo = true;
 
