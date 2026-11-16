@@ -7,7 +7,8 @@ public class Subjefe : MonoBehaviour
     public int vidaActual;
 
     [Header("Movimiento")]
-    public float velocidad = 3f; // usado cuando el jugador lo posee, y tambien al perseguir
+    public float velocidad = 3f; // velocidad cuando el jugador lo POSEE
+    public float velocidadPersecucion = 2f; // velocidad cuando NO esta poseido y persigue al jugador (mas baja = no se chocan entre ellos)
     protected int direccion = 1; // 1 = mirando a la derecha, -1 = mirando a la izquierda
 
     [Header("Persecucion (cuando NO esta poseido)")]
@@ -32,6 +33,7 @@ public class Subjefe : MonoBehaviour
     public float velocidadResbalar = 4f; // que tan fuerte se desliza hacia el costado
     public float duracionResbalar = 0.4f; // cuanto tiempo deja de perseguir mientras resbala
     private float tiempoFinResbalar = 0f;
+    private float direccionResbalar = 0f;
 
     [Header("Salto")]
     public float fuerzaSalto = 8f;
@@ -94,6 +96,7 @@ public class Subjefe : MonoBehaviour
         {
             rb.freezeRotation = true;
             rb.rotation = 0f;
+            rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
         }
 
         // el Animator/SpriteRenderer pueden estar en el mismo objeto, o en el hijo "modeloVisual"
@@ -115,9 +118,39 @@ public class Subjefe : MonoBehaviour
         }
     }
 
+    // si hay otro personaje debajo de los pies, resbala hacia el costado
+    // (poseido: ignora al Jugador, que esta escondido, y Mover() aplica el empujon)
+    void ChequearResbalarEncima()
+    {
+        // poseido: no resbala a la fuerza, asi podes caminar y saltar arriba de enemigos
+        // si es Kinematic (ej: el jefe subiendo/bajando) NO resbala: la velocidad lo dejaria yendose para siempre
+        if (estaPoseido || rb == null || rb.bodyType != RigidbodyType2D.Dynamic || Time.time < tiempoFinResbalar) return;
+
+        Collider2D debajo = ResbalarEncima.BuscarDebajo(colisionadorPropio, estaPoseido);
+        if (debajo == null) return;
+
+        direccionResbalar = ResbalarEncima.ElegirLado(transform, debajo.transform);
+        tiempoFinResbalar = Time.time + duracionResbalar;
+        if (!estaPoseido)
+        {
+            rb.linearVelocity = new Vector2(direccionResbalar * velocidadResbalar, rb.linearVelocity.y);
+        }
+    }
+
+    // si esta poseido y cayo arriba de un enemigo/subjefe, lo empuja al costado (sin control un instante)
+    protected bool AplicarResbalarPoseido()
+    {
+        if (!estaPoseido || Time.time >= tiempoFinResbalar) return false;
+        rb.linearVelocity = new Vector2(direccionResbalar * velocidadResbalar, rb.linearVelocity.y);
+        return true;
+    }
+
     public virtual void Mover(float horizontal)
     {
-        rb.linearVelocity = new Vector2(horizontal * velocidad, rb.linearVelocity.y);
+        if (AplicarResbalarPoseido()) return;
+
+        float velocidadActual = estaPoseido ? velocidad : velocidadPersecucion;
+        rb.linearVelocity = new Vector2(horizontal * velocidadActual, rb.linearVelocity.y);
 
         if (horizontal != 0)
         {
@@ -257,6 +290,8 @@ public class Subjefe : MonoBehaviour
             return;
         }
 
+        ChequearResbalarEncima();
+
         Vector2 origenRaycast = colisionadorPropio != null
             ? new Vector2(colisionadorPropio.bounds.center.x, colisionadorPropio.bounds.min.y)
             : (Vector2)transform.position;
@@ -264,6 +299,12 @@ public class Subjefe : MonoBehaviour
         RaycastHit2D golpeSuelo = Physics2D.Raycast(origenRaycast, Vector2.down, distanciaChequeoSuelo, capaSuelo);
         enSuelo = golpeSuelo.collider != null;
         plataformaActual = golpeSuelo.collider;
+
+        // poseido y parado arriba de un enemigo/subjefe: cuenta como suelo
+        if (!enSuelo && estaPoseido && ResbalarEncima.BuscarDebajo(colisionadorPropio, true) != null)
+        {
+            enSuelo = true;
+        }
 
         if (jugador == null) return;
 
@@ -316,7 +357,7 @@ public class Subjefe : MonoBehaviour
     // hacia el costado para que resbale y no se quede pegado ahi
     void OnCollisionStay2D(Collision2D colision)
     {
-        if (estaPoseido || estaMuerto || rb == null) return;
+        if (estaMuerto || rb == null) return;
         // vale para el jugador, otros subjefes y minions (si caes arriba de un golpeador, resbalas)
         GameObject otro = colision.gameObject;
         if (otro.GetComponent<Jugador>() == null
@@ -325,24 +366,19 @@ public class Subjefe : MonoBehaviour
 
         bool esJugadorOtro = otro.GetComponent<Jugador>() != null;
 
+        // poseido: el Jugador esta escondido, solo nos importa resbalar de arriba de un enemigo/subjefe
+        if (estaPoseido && esJugadorOtro) return;
+
         foreach (ContactPoint2D contacto in colision.contacts)
         {
             // lado a lado con otro enemigo/subjefe: los separamos para que no se superpongan
-            if (!esJugadorOtro && Mathf.Abs(contacto.normal.x) > 0.5f)
+            if (!estaPoseido && !esJugadorOtro && Mathf.Abs(contacto.normal.x) > 0.5f)
             {
                 float ladoSep = transform.position.x >= colision.transform.position.x ? 1f : -1f;
                 rb.position += new Vector2(ladoSep * 2f * Time.fixedDeltaTime, 0f);
                 return;
             }
 
-            // normal.y < -0.5: el subjefe esta apoyado desde ARRIBA sobre el jugador
-            if (Mathf.Abs(contacto.normal.y) > 0.5f && EstaArribaDe(colision.collider))
-            {
-                float lado = transform.position.x >= colision.transform.position.x ? 1f : -1f;
-                rb.linearVelocity = new Vector2(lado * velocidadResbalar, rb.linearVelocity.y);
-                tiempoFinResbalar = Time.time + duracionResbalar;
-                return;
-            }
         }
     }
 

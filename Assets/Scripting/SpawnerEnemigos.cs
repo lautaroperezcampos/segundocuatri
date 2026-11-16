@@ -46,11 +46,13 @@ public class SpawnerEnemigos : MonoBehaviour
 
     void OnTriggerEnter2D(Collider2D otro)
     {
-        // se activa si entra el Jugador normal, o el Subjefe (cuando esta poseido)
+        // se activa si entra el Jugador normal, o un Subjefe QUE ESTAS POSEYENDO.
+        // un subjefe suelto o hostil parado en la zona NO lo activa
         bool esJugador = otro.GetComponent<Jugador>() != null;
-        bool esSubjefe = otro.GetComponent<Subjefe>() != null;
+        Subjefe subjefe = otro.GetComponent<Subjefe>();
+        bool esSubjefePoseido = subjefe != null && subjefe.estaPoseido;
 
-        if (esJugador || esSubjefe)
+        if (esJugador || esSubjefePoseido)
         {
             ActivarDesdeAfuera();
         }

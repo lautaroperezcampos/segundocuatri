@@ -9,11 +9,8 @@ EditorBuildSettings:
     path: Assets/Scenes/MenuPrincipal.unity
     guid: 2a83668ead86dc34eac63841a7a43490
   - enabled: 1
-    path: Assets/Scenes/Tutorial.unity
-    guid: 255cbf973c5c8b44b83392c88cfe8442
-  - enabled: 1
-    path: Assets/Scenes/Dialogo.unity
-    guid: d7e0f4d3718081b4398f92ba1425feab
+    path: Assets/Scenes/TUTORIALOFICIAL.unity
+    guid: 7cc8199e238a78b449e80b7e0d625441
   - enabled: 1
     path: Assets/Scenes/Plataformero.unity
     guid: abbbee6d0e5a2934a91ac2eaca1ba7a6
@@ -24,17 +21,20 @@ EditorBuildSettings:
     path: Assets/Scenes/Plataformero2.unity
     guid: 6060236667384664eb49be40ad72e3ee
   - enabled: 1
+    path: Assets/Scenes/SubjefeVolador.unity
+    guid: 2ea607eaaca00d143abfda6dd280bb62
+  - enabled: 1
+    path: Assets/Scenes/Plataformero3.unity
+    guid: 9877a0d67a051e849940fc0753383cc8
+  - enabled: 1
     path: Assets/Scenes/SubjefeGolpear.unity
     guid: a0926e9c499ca7549968626573367c66
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: 8c9cfa26abfee488c85f1582747f6a02
+    path: Assets/Scenes/JefeFinal.unity
+    guid: b7b265c551d48854c893e6b6194455ce
   - enabled: 1
     path: Assets/Scenes/FinJuego.unity
     guid: 0be300319e40e754c852bd7d64bad99c
-  - enabled: 1
-    path: Assets/Scenes/TUTORIALOFICIAL.unity
-    guid: 7cc8199e238a78b449e80b7e0d625441
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

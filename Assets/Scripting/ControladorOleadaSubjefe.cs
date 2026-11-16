@@ -12,8 +12,15 @@ public class ControladorOleadaSubjefes : MonoBehaviour
     public GameObject[] prefabsSubjefes; // los 2 prefabs (pueden repetirse el mismo)
     public Transform[] puntosSpawnSubjefes; // 2 posiciones, una por cada Subjefe
 
+    [Header("Subjefe que YA esta puesto en la escena (opcional)")]
+    public Subjefe subjefeYaEnEscena; // arrastra aca el subjefe de la escena. Si lo asignas, este controlador lo vigila (y lo repone si hace falta) y NO spawnea nada
+    [Header("Caida al vacio (opcional): si un subjefe de ESTE controlador cae muy abajo, se elimina y se repone")]
+    public bool eliminarSiCaeAlVacio = false;
+    public float limiteCaidaY = -40f; // por debajo de esta altura el subjefe se elimina (si no lo estas poseyendo)
+
     [Header("Reposicion (opcional): si mueren todos los subjefes de ESTE controlador, aparece otro")]
-    public bool reponerDisparador = false; // dejalo destildado si no lo necesitas (todo funciona como antes)
+    public bool reponerDisparador = false;
+    public bool reponerDuranteOleada = false; // tildado: repone tambien MIENTRAS peleas con los minions (no solo despues). Util si el controlador no spawnea subjefes // dejalo destildado si no lo necesitas (todo funciona como antes)
     public Jugador jugador; // para saber si lo estas poseyendo
     public GameObject prefabRepuesto; // el prefab del SubjefeDisparador que se repone
     public Transform puntoRepuesto; // donde reaparece
@@ -26,6 +33,21 @@ public class ControladorOleadaSubjefes : MonoBehaviour
     // DIAGNOSTICO TEMPORAL: si esto no aparece apenas das Play, el componente no esta en la escena o esta apagado
     void Start()
     {
+        // subjefe ya puesto en la escena: lo adoptamos y el controlador queda activo desde el principio
+        // (no espera trigger ni minions) para poder reponerlo si lo matan
+        if (subjefeYaEnEscena != null && !subjefeYaEnEscena.gameObject.scene.IsValid())
+        {
+            Debug.LogError("[OleadaSubjefes '" + name + "'] En 'Subjefe Ya En Escena' pusiste el PREFAB (de la carpeta Assets). Tenes que arrastrar el subjefe que esta en la HIERARCHY de la escena, no el prefab.");
+            subjefeYaEnEscena = null;
+        }
+
+        if (subjefeYaEnEscena != null)
+        {
+            misSubjefes.Add(subjefeYaEnEscena);
+            subjefesYaSpawnados = true;
+            activado = true;
+        }
+
         Debug.Log("[OleadaSubjefes '" + name + "'] ARRANCO. Collider2D=" + (GetComponent<Collider2D>() != null)
             + " isTrigger=" + (GetComponent<Collider2D>() != null && GetComponent<Collider2D>().isTrigger));
     }
@@ -70,14 +92,29 @@ public class ControladorOleadaSubjefes : MonoBehaviour
                 + " jugadorAsignado=" + (jugador != null)
                 + " poseyendo=" + (jugador != null && jugador.estaPoseyendo)
                 + " prefabRepuesto=" + (prefabRepuesto != null)
-                + " puntoRepuesto=" + (puntoRepuesto != null));
+                + " puntoRepuesto=" + (puntoRepuesto != null)
+                + " | " + ResumenMisSubjefes()
+                + (spawnerEnemigos != null && !subjefesYaSpawnados
+                    ? " | minionsVivos=" + ContarEnemigosDeMiSpawner() + " oleadaTerminada=" + spawnerEnemigos.OleadaTerminada()
+                    : ""));
         }
 
         if (!activado) return;
 
+        // durante la oleada de minions tambien puede hacer falta un repuesto (si lo activaste)
+        if (!subjefesYaSpawnados && reponerDisparador && reponerDuranteOleada)
+        {
+            AsegurarDisparador();
+        }
+
         // ya aparecieron los subjefes: lo unico que queda por hacer es reponer si hace falta
         if (subjefesYaSpawnados)
         {
+            if (eliminarSiCaeAlVacio)
+            {
+                EliminarSubjefesCaidos();
+            }
+
             if (reponerDisparador)
             {
                 AsegurarDisparador();
@@ -93,14 +130,55 @@ public class ControladorOleadaSubjefes : MonoBehaviour
             return;
         }
 
-        Enemigo[] enemigosVivos = FindObjectsByType<Enemigo>(FindObjectsSortMode.None);
+        // cuenta SOLO los minions que salieron de ESTE spawner (un enemigo suelto de otro lado
+        // del mapa, o trabado en una plataforma, ya no frena la aparicion de los subjefes)
+        int enemigosVivos = ContarEnemigosDeMiSpawner();
 
         bool oleadaTermino = spawnerEnemigos.OleadaTerminada();
 
-        if (enemigosVivos.Length == 0 && oleadaTermino)
+        if (enemigosVivos == 0 && oleadaTermino)
         {
             SpawnearSubjefes();
         }
+    }
+
+    // un subjefe que se cayo del mapa (y no estas poseyendo) se elimina, asi AsegurarDisparador lo repone
+    void EliminarSubjefesCaidos()
+    {
+        foreach (Subjefe sj in misSubjefes)
+        {
+            if (sj == null || sj.estaMuerto || sj.estaPoseido) continue;
+
+            if (sj.transform.position.y < limiteCaidaY)
+            {
+                Debug.Log("[OleadaSubjefes '" + name + "'] '" + sj.name + "' cayo al vacio, se elimina para reponerlo");
+                Destroy(sj.gameObject);
+            }
+        }
+    }
+
+    int ContarEnemigosDeMiSpawner()
+    {
+        int cuenta = 0;
+        foreach (Enemigo e in FindObjectsByType<Enemigo>(FindObjectsSortMode.None))
+        {
+            if (e.spawner == spawnerEnemigos) cuenta++;
+        }
+        return cuenta;
+    }
+
+    // DIAGNOSTICO TEMPORAL: cuantos subjefes de ESTE controlador cuenta como vivos y cuales son
+    string ResumenMisSubjefes()
+    {
+        int vivos = 0;
+        string nombres = "";
+        foreach (Subjefe sj in misSubjefes)
+        {
+            if (sj == null) continue;
+            if (!sj.estaMuerto) vivos++;
+            nombres += sj.name + (sj.estaMuerto ? "(muerto) " : (sj.estaPoseido ? "(poseido) " : "(vivo) "));
+        }
+        return "misSubjefes=" + misSubjefes.Count + " vivos=" + vivos + " [" + nombres + "]";
     }
 
     // si NINGUNO de los subjefes de ESTE controlador sigue vivo y no estas poseyendo uno

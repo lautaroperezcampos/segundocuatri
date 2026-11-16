@@ -70,11 +70,21 @@ public class Jugador : MonoBehaviour
     public Image barraVidaHUD; // arrastra la Image (Fill) de la barra fija en pantalla
     public Color colorBarraJugador = Color.green;
     public Color colorBarraSubjefe = new Color(1f, 0.55f, 0f); // naranja, para diferenciar
+    public bool pintarBarra = false; // false = respeta los colores del sprite (rojo del diseño). true = usa los colores de arriba
+    public bool pintarAlPoseer = true; // la barra se pinta SOLO mientras poseyes un subjefe (despues vuelve al color normal)
+    public Material materialTono; // OPCIONAL: material con el shader "UI/CambioDeTono". Si lo pones, en vez de tintar gira el tono (rojo -> naranja)
+    public float tonoSubjefe = 0.08f; // cuanto gira el tono al poseer (0.08 = rojo a naranja)
+    private Material materialTonoInstancia;
+    public int segmentosBarra = 10; // cantidad de cuadraditos de la barra (0 = barra continua)
+    public Sprite[] spritesBarraSubjefe; // OPCIONAL: las mismas 10 imagenes pero en naranja, para cuando poseyes un subjefe. Si esta vacio usa spritesBarra
+    public Sprite[] spritesBarra; // OPCIONAL: 10 imagenes de la barra completa, en orden (1/10, 2/10 ... 10/10). Si las cargas, cambia de imagen segun la vida
 
     [Header("Referencias")]
     public GameObject modeloJugador; // el sprite/visual del jugador, para esconderlo al poseer
     public CamaraSeguimiento camara; // arrastra el Main Camera desde el Inspector
     public GameObject panelGameOver; // arrastra el panel de UI con el texto y el boton Reintentar
+    public bool congelarAlCaerAlVacio = true; // si moris cayendo al vacio, se congela la pantalla de atras
+    public bool congelarSiempreAlMorir = false; // tildalo para congelar en cualquier muerte (corta la animacion de muerte)
     private SpriteRenderer spriteRenderer;
     private Animator animator;
     private EfectoFlashDaño efectoFlash;
@@ -84,6 +94,7 @@ public class Jugador : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         colisionador = GetComponent<Collider2D>();
         vidaActual = vidaMaxima;
+        rb.sleepMode = RigidbodySleepMode2D.NeverSleep; // si se duerme, OnCollisionStay2D deja de llamarse y no resbala
 
         if (modeloJugador != null)
         {
@@ -129,7 +140,7 @@ public class Jugador : MonoBehaviour
 
         if (posicionY < limiteCaidaY)
         {
-            Morir();
+            Morir(true);
         }
     }
 
@@ -137,16 +148,66 @@ public class Jugador : MonoBehaviour
     {
         if (barraVidaHUD == null) return;
 
+        float porcentaje;
+        Color colorBarra;
+
         if (estaPoseyendo && subjefePoseido != null)
         {
-            barraVidaHUD.fillAmount = (float)subjefePoseido.vidaActual / subjefePoseido.vidaMaxima;
-            barraVidaHUD.color = colorBarraSubjefe;
+            porcentaje = (float)subjefePoseido.vidaActual / subjefePoseido.vidaMaxima;
+            colorBarra = colorBarraSubjefe;
         }
         else
         {
-            barraVidaHUD.fillAmount = (float)vidaActual / vidaMaxima;
-            barraVidaHUD.color = colorBarraJugador;
+            porcentaje = (float)vidaActual / vidaMaxima;
+            colorBarra = colorBarraJugador;
         }
+
+        porcentaje = Mathf.Clamp01(porcentaje);
+
+        // barra por cuadraditos: redondea para arriba, asi con 1 de vida ya se ve 1 cuadradito
+        if (segmentosBarra > 0)
+        {
+            porcentaje = Mathf.Ceil(porcentaje * segmentosBarra) / segmentosBarra;
+        }
+
+        // modo imagenes: cambia el sprite completo segun el porcentaje de vida
+        bool poseyendo = estaPoseyendo && subjefePoseido != null;
+        Sprite[] juego = (poseyendo && spritesBarraSubjefe != null && spritesBarraSubjefe.Length > 0)
+            ? spritesBarraSubjefe
+            : spritesBarra;
+
+        if (juego != null && juego.Length > 0)
+        {
+            int indice = Mathf.CeilToInt(Mathf.Clamp01(porcentaje) * juego.Length) - 1;
+            indice = Mathf.Clamp(indice, 0, juego.Length - 1);
+            barraVidaHUD.type = Image.Type.Simple;
+            barraVidaHUD.sprite = juego[indice];
+            barraVidaHUD.color = ColorFinalBarra(colorBarra);
+            return;
+        }
+
+        barraVidaHUD.fillAmount = porcentaje;
+        barraVidaHUD.color = ColorFinalBarra(colorBarra);
+    }
+
+    // aplica el material de cambio de tono (si hay) y devuelve el color con el que se tinta la Image
+    Color ColorFinalBarra(Color colorBarra)
+    {
+        bool poseyendo = estaPoseyendo && subjefePoseido != null;
+
+        if (materialTono != null)
+        {
+            if (materialTonoInstancia == null)
+            {
+                materialTonoInstancia = new Material(materialTono);
+            }
+            materialTonoInstancia.SetFloat("_Tono", tonoSubjefe);
+            barraVidaHUD.material = (poseyendo && pintarAlPoseer) ? materialTonoInstancia : null;
+            return pintarBarra ? colorBarra : Color.white;
+        }
+
+        if (poseyendo && pintarAlPoseer) return colorBarraSubjefe;
+        return pintarBarra ? colorBarra : Color.white;
     }
 
     void RegenerarVida()
@@ -161,40 +222,45 @@ public class Jugador : MonoBehaviour
         }
     }
 
-    // si el jugador cae ARRIBA de un enemigo o subjefe, lo empujamos al costado
-    // para que resbale y no se quede parado encima de su cabeza
-    void OnCollisionStay2D(Collision2D colision)
-    {
-        if (estaPoseyendo || estaMuerto) return;
-
-        bool esEnemigo = colision.gameObject.GetComponentInParent<Enemigo>() != null
-                      || colision.gameObject.GetComponentInParent<Subjefe>() != null;
-        if (!esEnemigo) return;
-
-        foreach (ContactPoint2D contacto in colision.contacts)
-        {
-            // normal.y < -0.5: el jugador esta apoyado desde ARRIBA sobre el enemigo (mismo criterio que Enemigo/Subjefe)
-            float miY = colisionador != null ? colisionador.bounds.center.y : transform.position.y;
-            if (Mathf.Abs(contacto.normal.y) > 0.5f && miY > colision.collider.bounds.center.y)
-            {
-                float lado = transform.position.x >= colision.transform.position.x ? 1f : -1f;
-                direccionResbalar = lado;
-                tiempoFinResbalar = Time.time + duracionResbalar;
-                return;
-            }
-        }
-    }
-
     void ChequearSuelo()
     {
         RaycastHit2D golpe = Physics2D.Raycast(transform.position, Vector2.down, distanciaChequeoSuelo, capaSuelo);
         enSuelo = golpe.collider != null;
         plataformaActual = golpe.collider;
 
+        // parado arriba de un enemigo/subjefe tambien cuenta como suelo (para poder caminar y saltar)
+        if (!enSuelo && ResbalarEncima.BuscarDebajo(colisionador, true) != null)
+        {
+            enSuelo = true;
+        }
+
+        // apoyado en CUALQUIER collider solido que no este en la capa Suelo (ej: un collider suelto
+        // arriba de un sprite): tambien cuenta como suelo, si no estas subiendo (asi no resetea el salto)
+        if (!enSuelo && colisionador != null && rb.linearVelocity.y <= 0.1f && HayColliderSolidoDebajo())
+        {
+            enSuelo = true;
+        }
+
         if (animator != null)
         {
             animator.SetBool("EnSuelo", enSuelo);
         }
+    }
+
+    bool HayColliderSolidoDebajo()
+    {
+        Bounds b = colisionador.bounds;
+        Vector2 centro = new Vector2(b.center.x, b.min.y - 0.05f);
+        Vector2 tam = new Vector2(b.size.x * 0.8f, 0.12f);
+
+        foreach (Collider2D otro in Physics2D.OverlapBoxAll(centro, tam, 0f))
+        {
+            if (otro == colisionador || otro.isTrigger) continue;
+            if (otro.attachedRigidbody == rb) continue;
+            if (otro.GetComponentInParent<Proyectil>() != null) continue;
+            return true;
+        }
+        return false;
     }
 
     void FixedUpdate()
@@ -725,8 +791,9 @@ public class Jugador : MonoBehaviour
         Morir();
     }
 
-    void Morir()
+    void Morir(bool porCaidaAlVacio = false)
     {
+        if (estaMuerto) return;
         estaMuerto = true;
         Debug.Log("GAME OVER - El jugador murio");
 
@@ -740,6 +807,12 @@ public class Jugador : MonoBehaviour
         if (panelGameOver != null)
         {
             panelGameOver.SetActive(true);
+        }
+
+        // congela todo para que no se vea al jugador cayendo mientras sale el menu de perdiste
+        if ((porCaidaAlVacio && congelarAlCaerAlVacio) || congelarSiempreAlMorir)
+        {
+            Time.timeScale = 0f;
         }
     }
 

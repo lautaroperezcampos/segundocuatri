@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class ControladorPalancas : MonoBehaviour
 {
@@ -15,6 +16,12 @@ public class ControladorPalancas : MonoBehaviour
 
     [Header("Puerta final: se abre solo cuando se activaron las 4 palancas (en cualquier orden)")]
     public PuertaInteractiva puertaFinal;
+    public bool exigirMatarGolpeadores = true; // tildado: ademas de las 4 palancas, hay que matar a los subjefes golpeadores de la palanca 3
+    public bool exigirMatarDisparadores = false; // tildalo si tambien hay que matar a los disparadores de la palanca 4
+
+    private List<GameObject> golpeadoresSpawneados = new List<GameObject>();
+    private List<GameObject> disparadoresSpawneados = new List<GameObject>();
+    private bool puertaYaAbierta = false;
 
     private bool[] palancaActivada = new bool[5]; // indices 1 a 4; el 0 no se usa
 
@@ -23,6 +30,15 @@ public class ControladorPalancas : MonoBehaviour
         if (puertaFinal != null)
         {
             puertaFinal.Bloquear();
+        }
+    }
+
+    void Update()
+    {
+        // la puerta puede abrirse despues de la ultima palanca, cuando muere el ultimo subjefe
+        if (!puertaYaAbierta && ContarActivadas() >= 4)
+        {
+            RevisarPuerta();
         }
     }
 
@@ -49,19 +65,41 @@ public class ControladorPalancas : MonoBehaviour
                 break;
 
             case 3:
-                SpawnearEnPuntos(prefabSubjefeGolpeador, puntosSpawnGolpeadores);
+                SpawnearEnPuntos(prefabSubjefeGolpeador, puntosSpawnGolpeadores, golpeadoresSpawneados);
                 break;
 
             case 4:
-                SpawnearEnPuntos(prefabSubjefeDisparador, puntosSpawnDisparadores);
+                SpawnearEnPuntos(prefabSubjefeDisparador, puntosSpawnDisparadores, disparadoresSpawneados);
                 break;
         }
 
-        // la puerta final se abre recien cuando estan las 4, sin importar el orden
-        if (ContarActivadas() >= 4 && puertaFinal != null)
+        RevisarPuerta();
+    }
+
+    // la puerta final se abre cuando estan las 4 palancas Y (si lo pediste) ya no quedan subjefes por matar
+    void RevisarPuerta()
+    {
+        if (puertaYaAbierta || puertaFinal == null) return;
+        if (ContarActivadas() < 4) return;
+
+        if (exigirMatarGolpeadores && !TodosResueltos(golpeadoresSpawneados)) return;
+        if (exigirMatarDisparadores && !TodosResueltos(disparadoresSpawneados)) return;
+
+        puertaYaAbierta = true;
+        puertaFinal.Desbloquear();
+    }
+
+    // un subjefe cuenta como "resuelto" si murio/desaparecio, o si lo poseiste (asi no te trabas)
+    bool TodosResueltos(List<GameObject> lista)
+    {
+        foreach (GameObject obj in lista)
         {
-            puertaFinal.Desbloquear();
+            if (obj == null) continue;
+
+            Subjefe sj = obj.GetComponent<Subjefe>();
+            if (sj != null && !sj.estaMuerto && !sj.estaPoseido) return false;
         }
+        return true;
     }
 
     int ContarActivadas()
@@ -74,7 +112,7 @@ public class ControladorPalancas : MonoBehaviour
         return total;
     }
 
-    void SpawnearEnPuntos(GameObject prefab, Transform[] puntos)
+    void SpawnearEnPuntos(GameObject prefab, Transform[] puntos, List<GameObject> registro)
     {
         if (prefab == null || puntos == null) return;
 
@@ -82,7 +120,8 @@ public class ControladorPalancas : MonoBehaviour
         {
             if (punto != null)
             {
-                Instantiate(prefab, punto.position, Quaternion.identity);
+                GameObject nuevo = Instantiate(prefab, punto.position, Quaternion.identity);
+                registro.Add(nuevo);
             }
         }
     }

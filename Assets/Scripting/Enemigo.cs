@@ -73,6 +73,7 @@ public class Enemigo : MonoBehaviour
         {
             rb.freezeRotation = true;
             rb.rotation = 0f;
+            rb.sleepMode = RigidbodySleepMode2D.NeverSleep;
         }
 
         GameObject fuenteVisual = modeloVisual != null ? modeloVisual : gameObject;
@@ -91,6 +92,7 @@ public class Enemigo : MonoBehaviour
     void Update()
     {
         ChequearSuelo();
+        ChequearResbalarEncima();
 
         if (jugador == null) return;
 
@@ -127,6 +129,19 @@ public class Enemigo : MonoBehaviour
         }
     }
 
+    // si hay un jugador/enemigo/subjefe debajo de los pies, resbala hacia el costado
+    void ChequearResbalarEncima()
+    {
+        if (rb == null || Time.time < tiempoFinResbalar) return;
+
+        Collider2D debajo = ResbalarEncima.BuscarDebajo(colisionadorPropio);
+        if (debajo == null) return;
+
+        float lado = ResbalarEncima.ElegirLado(transform, debajo.transform);
+        rb.linearVelocity = new Vector2(lado * velocidadResbalar, rb.linearVelocity.y);
+        tiempoFinResbalar = Time.time + duracionResbalar;
+    }
+
     // true si el centro de este enemigo esta mas arriba que el del otro collider (no depende del signo de la normal)
     bool EstaArribaDe(Collider2D otro)
     {
@@ -153,15 +168,6 @@ public class Enemigo : MonoBehaviour
                 return;
             }
 
-            // normal.y < -0.5: el enemigo esta apoyado desde ARRIBA sobre el jugador
-            // (mismo criterio que usamos en el Trampolin y la PlataformaRompible)
-            if (Mathf.Abs(contacto.normal.y) > 0.5f && EstaArribaDe(colision.collider))
-            {
-                float lado = transform.position.x >= colision.transform.position.x ? 1f : -1f;
-                rb.linearVelocity = new Vector2(lado * velocidadResbalar, rb.linearVelocity.y);
-                tiempoFinResbalar = Time.time + duracionResbalar;
-                return;
-            }
         }
     }
 

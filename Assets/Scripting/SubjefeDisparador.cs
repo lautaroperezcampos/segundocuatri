@@ -30,10 +30,26 @@ public class SubjefeDisparador : Subjefe
     {
         base.Update(); // mantiene toda la logica original: suelo, deteccion de posesion, etc
 
+        // si ya no lo estas poseyendo (soltaste la posesion, murio, etc) la mira NO puede quedar flotando
+        if (!estaPoseido && (miraInstanciada != null || objetivoBloqueado != null))
+        {
+            OcultarMira();
+            objetivoBloqueado = null;
+        }
+
         // solo dispara si no esta poseido Y sigue vivo
         if (!estaPoseido && !estaMuerto && EstaListoParaActuar())
         {
             IntentarDispararAlJugador();
+        }
+    }
+
+    // por las dudas: si este titan se destruye, la mira se va con el
+    void OnDestroy()
+    {
+        if (miraInstanciada != null)
+        {
+            Destroy(miraInstanciada);
         }
     }
 

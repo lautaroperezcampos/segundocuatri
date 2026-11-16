@@ -40,7 +40,12 @@ public class SubjefeVolador : Subjefe
     // en el suelo camina con la velocidad normal; en el aire usa velocidadVolando
     public override void Mover(float horizontal)
     {
-        float velocidadActual = enSuelo ? velocidad : velocidadVolando;
+        if (AplicarResbalarPoseido()) return;
+
+        // poseido: caminando usa "velocidad" y en el aire "velocidadVolando". Sin poseer: siempre "velocidadPersecucion"
+        float velocidadActual = estaPoseido
+            ? (enSuelo ? velocidad : velocidadVolando)
+            : velocidadPersecucion;
         rb.linearVelocity = new Vector2(horizontal * velocidadActual, rb.linearVelocity.y);
 
         if (horizontal != 0)
@@ -50,7 +55,7 @@ public class SubjefeVolador : Subjefe
 
         if (animator != null)
         {
-            animator.SetBool("Corriendo", horizontal != 0);
+            animator.SetBool("Caminando", horizontal != 0);
         }
     }
 

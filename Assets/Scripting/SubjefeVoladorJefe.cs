@@ -31,6 +31,18 @@ public class SubjefeVoladorJefe : SubjefeVolador
     [Header("Jefe - Paredes (opcional)")]
     public GameObject[] paredes; // se activan al empezar la pelea y se desactivan al poseerlo
 
+    [Header("Jefe - Salida a la siguiente escena (opcional)")]
+    public GameObject salidaSiguienteEscena; // objeto con PuertaEscena (trigger) que arranca APAGADO y se enciende al terminar la pelea
+    public bool salidaSoloAlPoseer = false; // destildado: aparece apenas se puede poseer. Tildado: recien cuando lo posees
+
+    [Header("Jefe - Repuesto (opcional): si muere o se cae del mapa, aparece otro subjefe")]
+    public bool ponerRepuesto = false;
+    public GameObject prefabRepuesto; // pone un SubjefeVolador NORMAL (no el jefe, o se repite toda la pelea)
+    public Transform puntoRepuesto; // donde aparece el repuesto
+    public bool eliminarSiCaeAlVacio = true; // si el jefe cae por debajo de "Limite Caida Y", se elimina y aparece el repuesto
+    public float limiteCaidaY = -40f;
+    private bool repuestoYaCreado = false;
+
     [Header("Jefe - Eventos")]
     public UnityEvent alTerminarFase1;
     public UnityEvent alQuedarPoseible;
@@ -41,6 +53,9 @@ public class SubjefeVoladorJefe : SubjefeVolador
     protected override void Start()
     {
         base.Start();
+
+        // la salida a la siguiente escena arranca escondida hasta que termine la pelea
+        if (salidaSiguienteEscena != null) salidaSiguienteEscena.SetActive(false);
 
         // arranca arriba, flotando y quieto, sin perseguir ni atacar
         persigueAlJugador = false;
@@ -70,6 +85,44 @@ public class SubjefeVoladorJefe : SubjefeVolador
             + " | spawner=" + (spawnerMinions != null ? spawnerMinions.name : "VACIO"));
 
         StartCoroutine(RutinaJefe());
+    }
+
+    protected override void Update()
+    {
+        base.Update();
+
+        // se cayo del mapa sin que lo estes poseyendo: lo eliminamos y entra el repuesto
+        if (eliminarSiCaeAlVacio && !estaPoseido && !estaMuerto && transform.position.y < limiteCaidaY)
+        {
+            Debug.Log("[Jefe] cayo al vacio, se elimina");
+            CrearRepuesto();
+            Destroy(gameObject);
+        }
+    }
+
+    // si el jefe muere, aparece el repuesto
+    protected override void Morir()
+    {
+        base.Morir();
+        CrearRepuesto();
+    }
+
+    void CrearRepuesto()
+    {
+        if (!ponerRepuesto || repuestoYaCreado) return;
+        if (prefabRepuesto == null || puntoRepuesto == null)
+        {
+            Debug.LogWarning("[Jefe] falta Prefab Repuesto o Punto Repuesto, no puede reponer");
+            return;
+        }
+
+        repuestoYaCreado = true;
+        Instantiate(prefabRepuesto, puntoRepuesto.position, Quaternion.identity);
+        Debug.Log("[Jefe] aparece el repuesto");
+
+        // sin jefe la pelea no puede seguir: se abren las paredes y la salida para no trabar al jugador
+        PonerParedes(false);
+        if (salidaSiguienteEscena != null) salidaSiguienteEscena.SetActive(true);
     }
 
     // mientras esta invulnerable no recibe dano, y nunca llega a morir:
@@ -144,9 +197,20 @@ public class SubjefeVoladorJefe : SubjefeVolador
         invulnerable = true; // asi no lo mata por accidente
         alQuedarPoseible.Invoke();
 
+        // ya se puede poseer: aparece la salida (salvo que quieras esperar a que lo poseas)
+        if (!salidaSoloAlPoseer && salidaSiguienteEscena != null)
+        {
+            salidaSiguienteEscena.SetActive(true);
+        }
+
         while (!estaPoseido && !estaMuerto)
         {
             yield return null;
+        }
+
+        if (salidaSoloAlPoseer && salidaSiguienteEscena != null)
+        {
+            salidaSiguienteEscena.SetActive(true);
         }
 
         // lo poseyo: se abren las paredes y el jugador ya puede irse volando
@@ -192,10 +256,12 @@ public class SubjefeVoladorJefe : SubjefeVolador
         {
             if (estaPoseido || estaMuerto) yield break;
 
+            rb.linearVelocity = Vector2.zero; // por si algo le dejo velocidad: en Kinematic seguiria de largo
             rb.position = Vector2.MoveTowards(rb.position, destino, velocidadTransicion * Time.deltaTime);
             yield return null;
         }
 
+        rb.linearVelocity = Vector2.zero;
         rb.position = destino;
     }
 
